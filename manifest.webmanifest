@@ -1,0 +1,20 @@
+{
+  "id":"./",
+  "name":"NFL FantasyCast",
+  "short_name":"FantasyCast",
+  "description":"Your matchup, every game, and the football behind your lineup.",
+  "start_url":"./index.html#gameday",
+  "scope":"./",
+  "display":"standalone",
+  "background_color":"#edf2f8",
+  "theme_color":"#153453",
+  "icons":[
+    {"src":"assets/app/icon-192.png","sizes":"192x192","type":"image/png","purpose":"any"},
+    {"src":"assets/app/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any"},
+    {"src":"assets/app/icon-maskable-512.png","sizes":"512x512","type":"image/png","purpose":"maskable"}
+  ],
+  "shortcuts":[
+    {"name":"Game Day","url":"./index.html#gameday"},
+    {"name":"Lecture packets","url":"./index.html#packets"}
+  ]
+}
