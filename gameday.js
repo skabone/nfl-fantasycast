@@ -31,6 +31,7 @@
   function photo(url,name,cls='gd-avatar'){const u=safeURL(url);return u?`<img class="${cls}" src="${esc(u)}" alt="" loading="lazy" referrerpolicy="no-referrer">`:`<span class="${cls} gd-initials" aria-hidden="true">${esc(String(name||'?').split(' ').map(x=>x[0]).slice(0,2).join(''))}</span>`;}
   function sourceLine(sources){return list(sources).map(x=>`<span class="gd-source gd-source-${esc(['live','cached','stale','snapshot','unavailable'].includes(x.status)?x.status:'unavailable')}"><b>${esc(x.provider||'Source')}</b> ${esc(x.status==='live'?'checked':x.status||'unavailable')} · ${esc(stamp(x.fetchedAt))}${x.error?`<span class="gd-source-error">${esc(x.error)}</span>`:''}${link(x.url,'Source')}</span>`).join('');}
   const POSITIONS=['QB','RB','WR','TE','K','DEF'];
+  const NFL_TEAMS=new Set('ARI ATL BAL BUF CAR CHI CIN CLE DAL DEN DET GB HOU IND JAX KC LAC LAR LV MIA MIN NE NO NYG NYJ PHI PIT SEA SF TB TEN WAS'.split(' '));
   const position=p=>['DST','D/ST','DEFENSE'].includes(String(p?.position).toUpperCase())?'DEF':String(p?.position||'').toUpperCase();
   const identityValue=v=>{const value=String(v??'').trim();return value&&!/^(?:0|\?|unknown|empty|none|null|undefined)$/i.test(value)?value:'';};
   function playerIdentity(p,league){
@@ -38,9 +39,9 @@
     const strong=[];
     if(native&&platform==='sleeper')strong.push('sleeper:'+native);
     if(espn)strong.push('espn:'+espn);
-    const name=String(p.name||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+    const name=String(p.name||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim().replace(/(?:\s+(?:jr|sr|ii|iii|iv|v))+$/,'');
     const team=identityValue(p.team).toUpperCase(),pos=position(p);
-    const fallback=name&&!/^(?:unknown|unknown player|player|unavailable|empty slot)$/.test(name)&&team&&POSITIONS.includes(pos)?[name,team,pos].join('|'):'';
+    const fallback=pos==='DEF'?(NFL_TEAMS.has(team)?[team,pos].join('|'):''):name&&!/^(?:unknown|unknown player|player|unavailable|empty slot)$/.test(name)&&team&&POSITIONS.includes(pos)?[name,team,pos].join('|'):'';
     return {strong,fallback};
   }
   function aggregatePlayers(records){

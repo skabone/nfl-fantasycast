@@ -1,7 +1,7 @@
 {
   "schema": "nfl-fantasycast-public-build",
   "version": 1,
-  "builtAt": "2026-09-21T02:08:55+00:00",
+  "builtAt": "2026-09-21T02:14:04+00:00",
   "personalDataIncluded": false,
   "requiresPrivateProfileImport": true,
   "generalCards": 14,
@@ -29,11 +29,11 @@
     "browser-feed.js": "2b648e88af4830f12bf360d2e0b9d2493532bfd49d7eff78e1bad3f3b1f1f4f0",
     "data.js": "6d0d5d70ee1b0fe05f4ca565062f4dafa7ba82dec3ba2dceb21e1db82872f8cc",
     "data.json": "e3f514690e6b47d7433e1f5f762a098e647f8abfb89020c9ce87cc302a72d07e",
-    "delivery.js": "1209f61e6138a535e5334bea6941bfa6a4800cc452dc85aaa7a16ba14722ef86",
+    "delivery.js": "d846f1732f589f6808d863b803bdfa6f2cbb292e158552d436ece47bb1c79585",
     "device.css": "5110704cdd22d4c404c06095207f342b2f57f6e6d338ca28a78f67fe538e152b",
     "device.js": "d909cb61dee92d6b65c4478504f2df0c93895140626ac5534981f5593792b70d",
     "gameday.css": "6eaa68fd7037a8d14073408f5c85deadd450078f15cf20fd9ecc75f780d27a27",
-    "gameday.js": "f3b0dc026b4f51c4ad8da038d32e5d17fd311f700f3917fdcdc8d5207c5e44db",
+    "gameday.js": "8baa6859ed20dd4dd7f5a5eff225559351083f3f067e01273fc545731d575d50",
     "index.html": "ba3a05d1f3c1de57ffdbaae4effb769b80d6a760e7804643ab1e7ef5e56c429e",
     "league-rail.css": "b0e3d049ef4012478e6c978eb7787ef82f0fae8446cdf591840d4b40025baa89",
     "manifest.webmanifest": "c54f0f8695599b9fd869f4118702e77bf27fb6fe24a599bf25d3ba765be9a344",
@@ -41,6 +41,6 @@
     "present.js": "3be9590734fb4abf1ab30c28a17f3d328112b5e807646bbf9c025008d4692739",
     "profile.js": "e334c92e2a72827f9dcfd5aea316a4e98ff7d35d4f8523355027d6c282ab0a75",
     "style.css": "137da91bc36848ebb295d146ef65adf5fd4fce522f0e20e4d15e222751dc9c7d",
-    "sw.js": "a2c695c5ccf72b34a8647dcc9438fe3bb171a6fc0893ac4f7fb1805d2af1452c"
+    "sw.js": "f4424b9e0ed0cd1bf97bdd5e65a93a9066ef25ecdb215b34c8c8b5d669989be3"
   }
 }
