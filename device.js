@@ -17,7 +17,7 @@
     const packets=JSON.parse(JSON.stringify(window.NFL_APP.packets));
     const urls=new Map((profile?.guide.images||[]).map(i=>[i.path,i.imageUrl]));
     for(const p of packets)for(const c of p.cards)if(c.image&&urls.has(c.image.src))c.image.src=urls.get(c.image.src);
-    const result={schema:'nfl-fantasycast-backup',version:1,exportedAt:new Date().toISOString(),profile,packets,selectedLeague:window.NFL_APP.getLeague(),media:[]};
+    const result={schema:'nfl-fantasycast-backup',version:1,exportedAt:new Date().toISOString(),profile,packets,selectedLeague:window.NFL_APP.getLeague(),selectedLeagues:window.NFL_APP.getLeagues(),media:[]};
     if(includeAudio){
       const cards=[...(profile?.guide.leagueCards||[]),...packets.flatMap(p=>p.cards)];
       const paths=[...new Set(cards.map(c=>c.audio?.src).filter(s=>/^audio\/league-[a-z0-9_-]+\.m4a$/.test(s||'')))];
@@ -40,6 +40,7 @@
     const b=JSON.parse(text);
     if(b.schema!=='nfl-fantasycast-backup'||b.version!==1)throw new Error('Choose a JSON backup exported by NFL FantasyCast.');
     if(b.profile)P.validate(b.profile);P.validatePackets(b.packets);
+    if(b.selectedLeagues!==undefined&&(!Array.isArray(b.selectedLeagues)||b.selectedLeagues.length>20||b.selectedLeagues.some(id=>typeof id!=='string'||id.length>80)))throw new Error('The saved league selection is invalid.');
     if(!Array.isArray(b.media)||b.media.length>30)throw new Error('The narration list is invalid.');
     for(const m of b.media){
       if(!m||!/^audio\/league-[a-z0-9_-]+\.m4a$/.test(m.path)||!/^([a-f0-9]{64})$/.test(m.sha256)||typeof m.data!=='string'||m.data.length>5*1024*1024)throw new Error('A private narration entry is invalid.');
@@ -57,14 +58,21 @@
     // Recordings are immutable: a failed import must never replace a saved one.
     for(const m of b.media){const old=await storedMedia(m.path);if(old&&await sha(await old.arrayBuffer())!==m.sha256)throw new Error('A different recording already uses that name. Your saved recording and packets were kept.');}
     if(b.media.length){const db=await mediaDB();try{await new Promise((resolve,reject)=>{const tx=db.transaction('audio','readwrite');for(const m of b.media)tx.objectStore('audio').put(m.blob,m.path);tx.oncomplete=resolve;tx.onerror=()=>reject(new Error('Private narration could not be saved.'));tx.onabort=tx.onerror;});}finally{db.close();}}
-    const before=[P.PROFILE_KEY,P.PACKETS_KEY,'nfl-fantasycast-league-v1'].map(k=>[k,localStorage.getItem(k)]);
+    const before=[P.PROFILE_KEY,P.PACKETS_KEY,'nfl-fantasycast-league-v1','nfl-fantasycast-leagues-v1'].map(k=>[k,localStorage.getItem(k)]);
     try{
       localStorage.setItem(P.PACKETS_KEY,JSON.stringify(combined.packets));
       if(b.profile)localStorage.setItem(P.PROFILE_KEY,JSON.stringify(b.profile));
-      const valid=[...(b.profile?.sleeperLeagues||[]).map(l=>l.id)];
-      if(b.profile?.espnSnapshot){const s=b.profile.espnSnapshot;valid.push(`espn-${s.league.id}-${s.ownTeam.id}`);}
-      if(valid.includes(b.selectedLeague))localStorage.setItem('nfl-fantasycast-league-v1',b.selectedLeague);
-    }catch(error){for(const [k,v] of before){try{if(v===null)localStorage.removeItem(k);else localStorage.setItem(k,v);}catch{}}throw new Error('This device could not save the import. Its existing packets were kept.');}
+      const active=b.profile||window.NFL_PROFILE,valid=[...(active?.sleeperLeagues||[]).map(l=>l.id)];
+      if(active?.espnSnapshot){const s=active.espnSnapshot;valid.push(`espn-${s.league.id}-${s.ownTeam.id}`);}
+      const selected=Array.isArray(b.selectedLeagues)?valid.filter(id=>b.selectedLeagues.includes(id)):valid.includes(b.selectedLeague)?[b.selectedLeague]:valid;
+      localStorage.setItem('nfl-fantasycast-leagues-v1',JSON.stringify(selected));
+      localStorage.setItem('nfl-fantasycast-league-v1',selected.length===1?selected[0]:'all');
+    }catch(error){
+      // Free the partial import before restoring older values that may need more room.
+      for(const [k] of before){try{localStorage.removeItem(k);}catch{}}
+      for(const [k,v] of before){if(v!==null){try{localStorage.setItem(k,v);}catch{}}}
+      throw new Error('This device could not save the import. Its existing packets were kept.');
+    }
     return combined;
   }
   function render(){
