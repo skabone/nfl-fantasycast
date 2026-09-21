@@ -10,3 +10,5 @@
 .league-choice[data-chance-state=stale] .league-chance-label{color:var(--muted)}
 
 .league-chance-note{display:block;margin-top:8px;font-size:.66rem;line-height:1.4;color:var(--muted)}
+
+.league-choice .league-avatar{background:var(--league-ink,#2857b8)}.league-choice{border-left:4px solid var(--league-ink,#2857b8)}.league-choice.is-selected{border-left-color:var(--league-ink,#2857b8);background:var(--league-tint,#dce7fc)}.league-include input{accent-color:var(--league-ink,#2857b8)}
