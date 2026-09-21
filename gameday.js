@@ -154,6 +154,7 @@
       }else{const data=await request(s.league);if(!host||token!==dashboardSeq)return;s.dashboard=data;s.overview=[];s.aggregate={own:[],opponent:[]};}
       if(!host||token!==dashboardSeq)return;
       s.loading=false;
+      window.NFLWinChance?.observeMatchups(combined()?s.overview:[{league:selectedLeague(),data:s.dashboard}]);
       if(!games().some(g=>String(g.id)===s.gameId)){const candidate=games().find(g=>g.state==='in'&&connected(g,'own').length)||games().find(g=>connected(g,'own').length)||games().find(g=>g.state==='in')||games()[0];s.gameId=candidate?String(candidate.id):'';s.detail=null;}
       render();
     }catch(e){if(!host||token!==dashboardSeq||e.name==='AbortError')return;s.loading=false;s.error=e.message;render();}finally{if(host&&token===dashboardSeq)s.loading=false;}

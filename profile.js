@@ -32,6 +32,20 @@
     for(const p of value){assert(object(p)&&/^[a-zA-Z0-9_-]{1,120}$/.test(p.id)&&typeof p.title==='string'&&list(p.cards,30)&&p.cards.length>0,'A packet is incomplete.');p.cards.forEach(card);assert(!p.notes||object(p.notes)&&Object.values(p.notes).every(n=>typeof n==='string'),'Packet notes are invalid.');}
     scan(value);return value;
   }
+  function winChances(rows,p){
+    assert(list(rows,20),'The win-chance capture list is invalid.');
+    const ids=new Set((p.sleeperLeagues||[]).map(l=>l.id));if(p.espnSnapshot)ids.add(`espn-${p.espnSnapshot.league.id}-${p.espnSnapshot.ownTeam.id}`);
+    for(const r of rows){
+      assert(object(r)&&ids.has(r.leagueId)&&['Sleeper','ESPN'].includes(r.provider)&&r.method==='platform-ui','A win-chance capture has an invalid league or source.');
+      assert(Number.isInteger(r.season)&&r.season>=2000&&r.season<=2200&&Number.isInteger(r.week)&&r.week>=1&&r.week<=22&&typeof r.observedAt==='string'&&Number.isFinite(Date.parse(r.observedAt)),'A win-chance capture has an invalid date or week.');
+      assert(['string','number'].includes(typeof r.ownRosterId)&&/^\d{1,24}$/.test(String(r.ownRosterId)),'A win-chance capture has an invalid team identity.');
+      assert([r.ownPercent,r.opponentPercent].every(v=>v===null||Number.isFinite(v)&&v>=0&&v<=100),'A win percentage must be between zero and100, or unknown.');
+      if(r.ownPercent!==null&&r.opponentPercent!==null)assert(Math.abs(r.ownPercent+r.opponentPercent-100)<=1,'The captured win percentages do not agree.');
+      assert(https(r.sourceUrl),'A win-chance source must use HTTPS.');
+      const host=new URL(r.sourceUrl).hostname;assert(r.provider==='Sleeper'?['sleeper.com','www.sleeper.com','sleeper.app'].includes(host):['fantasy.espn.com','www.espn.com','espn.com'].includes(host),'A win-chance source does not match its platform.');
+    }
+    return rows;
+  }
   function profile(value){
     assert(object(value)&&value.schema==='nfl-fantasycast-profile'&&value.version===1,'Choose an NFL FantasyCast setup file.');
     const d=value.guide;
@@ -50,6 +64,7 @@
     assert(d.unverifiedLeagues.every(object),'A league status is invalid.');
     assert(typeof value.sleeperUserId==='string'&&/^\d{10,24}$/.test(value.sleeperUserId)&&list(value.sleeperLeagues,12)&&value.sleeperLeagues.every(l=>object(l)&&/^\d{10,24}$/.test(l.id)&&typeof l.name==='string'),'Sleeper settings are invalid.');
     if(value.espnSnapshot)assert(object(value.espnSnapshot)&&object(value.espnSnapshot.league)&&object(value.espnSnapshot.ownTeam)&&object(value.espnSnapshot.opponent),'The ESPN snapshot is invalid.');
+    if(value.winChanceSnapshots!==undefined)winChances(value.winChanceSnapshots,value);
     scan(value);return value;
   }
   function portable(guide){
@@ -58,7 +73,7 @@
     for(const c of [...copy.lessons,...copy.stories,...copy.leagueCards])if(c.image&&urls.has(c.image.src))c.image.src=urls.get(c.image.src);
     return copy;
   }
-  window.NFLProfile={PROFILE_KEY,PACKETS_KEY,validate:profile,validatePackets:packets,portable};
+  window.NFLProfile={PROFILE_KEY,PACKETS_KEY,validate:profile,validatePackets:packets,validateWinChances:winChances,portable};
   let chosen=window.NFL_LOCAL_PROFILE||null;
   try{const stored=localStorage.getItem(PROFILE_KEY);if(stored)chosen=profile(JSON.parse(stored));}catch{window.NFL_PROFILE_ERROR='A saved setup could not be read. Import a fresh FantasyCast setup file from App & backup.';}
   if(chosen){window.NFL_PROFILE=chosen;window.NFL_GUIDE=window.NFL_DELIVERY?.mode==='hosted'?portable(chosen.guide):chosen.guide;}

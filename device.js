@@ -13,6 +13,7 @@
   const sha=async buffer=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',buffer))].map(n=>n.toString(16).padStart(2,'0')).join('');
   async function exportData(includeAudio=true){
     const profile=window.NFL_PROFILE?JSON.parse(JSON.stringify(window.NFL_PROFILE)):null;
+    if(profile&&window.NFLWinChance)profile.winChanceSnapshots=window.NFLWinChance.snapshots();
     if(profile)profile.guide=P.portable(profile.guide);
     const packets=JSON.parse(JSON.stringify(window.NFL_APP.packets));
     const urls=new Map((profile?.guide.images||[]).map(i=>[i.path,i.imageUrl]));

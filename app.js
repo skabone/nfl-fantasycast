@@ -21,7 +21,30 @@
   const calculatorLeagues=D.leagues.length?D.leagues:[{id:'example-ppr',name:'Example PPR league',scoring:{reception:1,tightEndReceptionBonus:0,receivingYard:.1,receivingTouchdown:6}}];
   function setLeagues(ids){state.leagueIds=contextLeagues.filter(l=>ids.includes(l.id)).map(l=>l.id);state.league=state.leagueIds.length===1?state.leagueIds[0]:'all';try{localStorage.setItem(FOCUS_KEY,JSON.stringify(state.leagueIds));localStorage.setItem('nfl-fantasycast-league-v1',state.league);}catch{}syncContext();}
   function setLeague(id){if(id==='all')setLeagues(contextLeagues.map(l=>l.id));else if(contextLeagues.some(l=>l.id===id))setLeagues([id]);}
+  function syncLeagueChances(){
+    let summaries=[];try{const values=window.NFLWinChance?.summaries(contextLeagues,{now:Date.now()});if(Array.isArray(values))summaries=values;}catch{}
+    const byId=new Map(summaries.filter(x=>x&&typeof x.leagueId==='string').map(x=>[x.leagueId,x])),ranked=[];
+    for(const league of contextLeagues){
+      const button=[...document.querySelectorAll('[data-league-open]')].find(b=>b.dataset.leagueOpen===league.id);if(!button)continue;
+      const value=byId.get(league.id),known=value?.kind==='snapshot'&&typeof value.percent==='number'&&Number.isFinite(value.percent)&&value.percent>=0&&value.percent<=100;
+      const label=known?(typeof value.label==='string'?value.label:value.percent+'% to win'):'Chance unavailable';
+      const meta=typeof value?.meta==='string'&&value.kind!=='estimate'?value.meta:league.platform+' · No saved percentage';
+      const detail=typeof value?.detail==='string'&&value.kind!=='estimate'?value.detail:'No platform win percentage has been saved for this league.';
+      const stale=known&&value.stale===true,rank=known&&!stale&&value.percent>0&&value.percent<100&&[1,2].includes(value.attentionRank)?value.attentionRank:null;
+      button.querySelector('.league-chance-label').textContent=label;button.querySelector('.league-chance-meta').textContent=meta;
+      const badge=button.querySelector('.league-attention');badge.hidden=!rank;badge.textContent=rank?'Closest '+rank:'';badge.title='Close at last check';
+      const description=button.querySelector('.league-chance-description');description.textContent=[label,meta,rank?'Closest matchup '+rank+' at last check':'',detail].filter(Boolean).join('. ');
+      button.closest('.league-choice').classList.toggle('has-close-matchup',Boolean(rank));button.closest('.league-choice').dataset.chanceState=known?(stale?'stale':'snapshot'):'unavailable';
+      if(rank)ranked.push({id:league.id,rank,name:league.name,button});
+    }
+    ranked.sort((a,b)=>a.rank-b.rank);
+    const eligible=ranked.length>=1&&ranked.length<=2&&ranked.every((x,i)=>x.rank===i+1)?ranked:[],focus=$('focus-closest');
+    if(eligible.length===1){eligible[0].button.querySelector('.league-attention').textContent='Close matchup';const description=eligible[0].button.querySelector('.league-chance-description');description.textContent=description.textContent.replace('Closest matchup 1 at last check','Close matchup at last check');}
+    if(focus){focus.hidden=!eligible.length;focus.setAttribute('aria-label',eligible.length?'Focus close matchups at last check: '+eligible.map(x=>x.name).join(' and '):'Focus close matchups');}
+    return eligible.map(x=>x.id);
+  }
   function syncContext(){
+    syncLeagueChances();
     const path=location.hash.slice(1).split(/[/?]/)[0]||'gameday',n=state.leagueIds.length,all=n>0&&n===contextLeagues.length;
     $('all-leagues')?.setAttribute('aria-pressed',String(all));
     document.querySelectorAll('[data-league-include]').forEach(box=>{box.checked=state.leagueIds.includes(box.dataset.leagueInclude);});
@@ -40,9 +63,10 @@
   }
   function setupContext(){
     const rail=$('league-rail');if(!rail)return;
-    $('league-options').innerHTML=contextLeagues.map((l,i)=>{const initials=l.name.split(/\s+/).filter(Boolean).map(w=>w[0]).join('').slice(0,2).toUpperCase();return `<div class="league-choice"><button class="league-open" data-league-open="${esc(l.id)}" aria-label="Open ${esc(l.name)} only"><span class="league-avatar league-color-${i%5}" aria-hidden="true">${esc(initials)}</span><span class="league-name">${esc(l.name)}<small>${esc(l.platform)}</small></span></button><label class="league-include" title="Include ${esc(l.name)} in the combined view"><input type="checkbox" data-league-include="${esc(l.id)}" aria-label="Include ${esc(l.name)} in combined view"><span class="sr-only">Include ${esc(l.name)}</span></label></div>`;}).join('');
+    $('league-options').innerHTML=contextLeagues.map((l,i)=>{const initials=l.name.split(/\s+/).filter(Boolean).map(w=>w[0]).join('').slice(0,2).toUpperCase();return `<div class="league-choice"><button class="league-open" data-league-open="${esc(l.id)}" aria-label="Open ${esc(l.name)} only" aria-describedby="league-chance-${i}"><span class="league-avatar league-color-${i%5}" aria-hidden="true">${esc(initials)}</span><span class="league-name">${esc(l.name)}<span class="league-chance"><strong class="league-chance-label">Chance unavailable</strong><span class="league-attention" hidden></span><small class="league-chance-meta">${esc(l.platform)} · No saved percentage</small></span><span id="league-chance-${i}" class="sr-only league-chance-description"></span></span></button><label class="league-include" title="Include ${esc(l.name)} in the combined view"><input type="checkbox" data-league-include="${esc(l.id)}" aria-label="Include ${esc(l.name)} in combined view" aria-describedby="league-chance-${i}"><span class="sr-only">Include ${esc(l.name)}</span></label></div>`;}).join('');
+    if(!$('focus-closest')){const focus=document.createElement('button');focus.id='focus-closest';focus.className='focus-closest';focus.type='button';focus.textContent='Focus close matchups';focus.title='Close at last check';focus.hidden=true;$('all-leagues').after(focus);}
     $('all-leagues').hidden=!contextLeagues.length;$('league-help').hidden=!contextLeagues.length;$('league-import').hidden=Boolean(contextLeagues.length);
-    rail.addEventListener('click',e=>{const button=e.target.closest('[data-league-open]');if(button)applyFocus([button.dataset.leagueOpen]);else if(e.target.closest('#all-leagues'))applyFocus(contextLeagues.map(l=>l.id));});
+    rail.addEventListener('click',e=>{const button=e.target.closest('[data-league-open]');if(button)applyFocus([button.dataset.leagueOpen]);else if(e.target.closest('#all-leagues'))applyFocus(contextLeagues.map(l=>l.id));else if(e.target.closest('#focus-closest')){const ids=syncLeagueChances();if(ids.length)applyFocus(ids);else{$('all-leagues')?.focus();toast('No recently captured close matchups are available.');}}});
     rail.addEventListener('change',e=>{const id=e.target.dataset.leagueInclude;if(!id)return;applyFocus(e.target.checked?[...state.leagueIds,id]:state.leagueIds.filter(x=>x!==id));});syncContext();
   }
   function gameDay(){return '<section id="gameday-root" aria-label="NFL FantasyCast Game Day"><h1>Game Day</h1><p>Connecting your matchup to today’s NFL games…</p></section>';}
@@ -109,6 +133,8 @@
 
   document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.packetStep!==undefined){const p=currentPacket(),n=Number(b.dataset.packetStep);if(p&&n>=0&&n<p.cards.length){location.hash='#packet/'+p.id+'?step='+n;window.scrollTo({top:0,behavior:'instant'});}}if(b.dataset.export)exportPacket(b.dataset.export);if(b.dataset.rate){const values={route:['24 ÷ 40 = 60%','Player routes divided by team pass plays. Being on a route creates a chance; it does not guarantee a target.'],target:['8 ÷ 32 = 25%','Player targets divided by the hypothetical team’s 32 targets. Routes are not the denominator for target share.'],catch:['5 ÷ 8 = 62.5%','Catches divided by this player’s targets. Catch rate alone does not explain the difficulty or value of those throws.']};document.querySelectorAll('[data-rate]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));$('opportunity-rate').textContent=values[b.dataset.rate][0];$('opportunity-meaning').textContent=values[b.dataset.rate][1];}if(b.dataset.carries){const runs=b.dataset.carries==='burst'?[-2,0,2,5,20]:[5,5,5,5,5];document.querySelectorAll('[data-carries]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));$('carry-bars').innerHTML=runs.map((n,i)=>`<div class="carry-row"><span>Carry ${i+1}</span><div><i class="${n<0?'loss':''}" style="width:${Math.abs(n)/20*100}%"></i></div><b>${n>0?'+':''}${n} yd</b></div>`).join('');$('carry-pattern').textContent=b.dataset.carries==='burst'?'One 20-yard run accounts for 80% of the yards. Two carries gain nothing or lose ground.':'Every carry gains five yards. The average matches the other pattern, but the drive may feel very different.';}if(b.dataset.eligible){const superflex=b.dataset.eligible==='Superflex';document.querySelectorAll('[data-eligible]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));$('eligible-result').textContent=superflex?'QB · RB · WR · TE':'RB · WR · TE';$('eligible-meaning').textContent=superflex?'Superflex permits a quarterback; it does not require one. Check the exact league slot and available players.':'A standard FLEX does not add a quarterback slot.';}if(b.dataset.down){const third=b.dataset.down==='third';document.querySelectorAll('[data-down]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));$('down-result').textContent=third?'Fourth-and-4: the drive is still short.':'Second-and-5: half the distance remains.';$('down-meaning').textContent=third?'The same five yards did not convert. Fourth-down decisions now depend on field position, score, time and the teams.':'A useful early-down gain creates options. It still has not earned a first down.';}});
   window.addEventListener('hashchange',()=>route());
+  document.addEventListener('nfl:win-chance-update',syncLeagueChances);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)syncLeagueChances();});
   window.NFL_APP={data:D,contextLeagues,setLeague,setLeagues,getLeagues:()=>[...state.leagueIds],getLeague:()=>state.league,cards:cardMap,activeCard,packets:state.packets,route,selectPacketCards,showCard(id,cause='narration'){history.replaceState(null,'','#card/'+id);route(cause);},showPacket(id,index,cause='narration'){history.replaceState(null,'','#packet/'+id+'?step='+index);route(cause);},toast};
   setupContext();
   route();

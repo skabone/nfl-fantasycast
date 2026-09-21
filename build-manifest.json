@@ -1,12 +1,12 @@
 {
   "schema": "nfl-fantasycast-public-build",
   "version": 1,
-  "builtAt": "2026-09-21T02:14:04+00:00",
+  "builtAt": "2026-09-21T02:40:57+00:00",
   "personalDataIncluded": false,
   "requiresPrivateProfileImport": true,
   "generalCards": 14,
   "files": {
-    "app.js": "deecc9beb480668f88aa66dc8e28159fdac29492280b17adb032808435064ea5",
+    "app.js": "91940ef5d0d05a7c3962204478100bde56beb63fa45fb83d915159f6ef45dec8",
     "assets/app/icon-1024.png": "4a3af6dd2ecfee8b3febcc40aad677c3d508213809b7597e86762746dad0a925",
     "assets/app/icon-180.png": "df0543191a684b85caac1d1d30b96146da3e4e8730eb808b2d44558dd293bc7e",
     "assets/app/icon-192.png": "180e5b9e1ce4287035a7bfb92c9d0156a296ee0582c040374e56c578d6fb515d",
@@ -29,18 +29,19 @@
     "browser-feed.js": "2b648e88af4830f12bf360d2e0b9d2493532bfd49d7eff78e1bad3f3b1f1f4f0",
     "data.js": "6d0d5d70ee1b0fe05f4ca565062f4dafa7ba82dec3ba2dceb21e1db82872f8cc",
     "data.json": "e3f514690e6b47d7433e1f5f762a098e647f8abfb89020c9ce87cc302a72d07e",
-    "delivery.js": "d846f1732f589f6808d863b803bdfa6f2cbb292e158552d436ece47bb1c79585",
+    "delivery.js": "b830db99d48b20e9e2e841d2246ad3f69ea6e9f6a6cdceb2c6c6ae0b17e4d0f9",
     "device.css": "5110704cdd22d4c404c06095207f342b2f57f6e6d338ca28a78f67fe538e152b",
-    "device.js": "d909cb61dee92d6b65c4478504f2df0c93895140626ac5534981f5593792b70d",
+    "device.js": "8b78d2c09b924131ba94cb41f4c555a38cb941b5c6bdf9a4828fc6c0bd15591b",
     "gameday.css": "6eaa68fd7037a8d14073408f5c85deadd450078f15cf20fd9ecc75f780d27a27",
-    "gameday.js": "8baa6859ed20dd4dd7f5a5eff225559351083f3f067e01273fc545731d575d50",
-    "index.html": "ba3a05d1f3c1de57ffdbaae4effb769b80d6a760e7804643ab1e7ef5e56c429e",
-    "league-rail.css": "b0e3d049ef4012478e6c978eb7787ef82f0fae8446cdf591840d4b40025baa89",
+    "gameday.js": "bbb6a686e101750e26c9506ffa0e0a8817b755120643e6bc2991a5842d7fce0d",
+    "index.html": "a3e6807276b69d3298f07625d6507a152c103bf5be6ed6dab251219d0afd54f4",
+    "league-rail.css": "cb1154ac8ed4e8f82ceb31441d95781d8c7ab5338bdd22f6892dfee3cd0b5b10",
     "manifest.webmanifest": "c54f0f8695599b9fd869f4118702e77bf27fb6fe24a599bf25d3ba765be9a344",
     "offline.html": "f008c44ffdda891eb97b84987772d3c879e666e37e4f29e91f3624613ad45e8c",
     "present.js": "3be9590734fb4abf1ab30c28a17f3d328112b5e807646bbf9c025008d4692739",
-    "profile.js": "e334c92e2a72827f9dcfd5aea316a4e98ff7d35d4f8523355027d6c282ab0a75",
+    "profile.js": "8a8f087642af99c336a176ffa99a487490c058b21e57569647c55fc83c470108",
     "style.css": "137da91bc36848ebb295d146ef65adf5fd4fce522f0e20e4d15e222751dc9c7d",
-    "sw.js": "f4424b9e0ed0cd1bf97bdd5e65a93a9066ef25ecdb215b34c8c8b5d669989be3"
+    "sw.js": "1e86ccc40e244337aad87305daa389ab1b6be6390464c6b95fde7f1da719327f",
+    "win-chance.js": "23d9e184d40949b957616828b8a85776ee407e1e633e15d9bc137b54d1928dbe"
   }
 }
