@@ -127,3 +127,38 @@
 .gd-news-caveat{margin:11px 0 0;font-size:.68rem;line-height:1.5;color:var(--gd-muted)}
 .gd-news-source{margin:7px 0 0;font-size:.66rem;color:var(--gd-muted)}
 @media(max-width:620px){.gd-news-thumb{width:56px;height:44px}.gd-news-list li{padding:8px}}
+
+/* ─ Notes for Claude ─────────────────────────────────────────────────────────────────────────────
+   The improvement log. Device-only, never uploaded, never part of a release. */
+.gd-improve-card{border:1px solid var(--gd-line);border-left:4px solid #8a6d1f;border-radius:5px;background:white;margin-bottom:14px}
+.gd-improve-card>summary{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:13px 16px;cursor:pointer;list-style:none}
+.gd-improve-card>summary::-webkit-details-marker{display:none}
+.gd-improve-card>summary>span{min-width:0;flex:1 1 auto}
+.gd-improve-card>summary b{font-size:.95rem;display:block;margin-bottom:3px}
+.gd-improve-card>summary span>span{font-size:.76rem;color:var(--gd-muted)}
+.gd-improve-card>summary small{font-size:.68rem;color:#8a6d1f;white-space:nowrap}
+.gd-improve-card>summary small::after{content:' ＋'}
+.gd-improve-card[open]>summary small::after{content:' −'}
+.gd-improve-body{padding:0 16px 14px}
+.gd-improve-intro{margin:0 0 9px;font-size:.76rem;color:var(--gd-muted)}
+.gd-improve-entry{display:flex;gap:8px;align-items:flex-start}
+.gd-improve-entry textarea{flex:1;min-width:0;font:inherit;font-size:.83rem;line-height:1.45;padding:8px 10px;border:1px solid var(--gd-line);border-radius:6px;resize:vertical}
+.gd-improve-entry button{flex:none;min-height:40px}
+.gd-improve-status{margin:7px 0 0;min-height:1.1em;font-size:.72rem;color:var(--gd-muted)}
+.gd-improve-list{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:7px}
+.gd-improve-list li{display:flex;gap:10px;align-items:flex-start;padding:9px 10px;border:1px solid #e3e9f1;border-radius:6px;background:#fbfcfe}
+.gd-improve-n{flex:none;width:22px;height:22px;display:grid;place-items:center;border-radius:50%;background:var(--gd-navy);color:#fff;font-size:.68rem;font-weight:750}
+.gd-improve-list li>div{flex:1;min-width:0}
+.gd-improve-list p{margin:0;font-size:.82rem;line-height:1.4;overflow-wrap:anywhere}
+.gd-improve-meta{margin-top:3px!important;font-size:.66rem;color:var(--gd-muted)}
+.gd-improve-actions{flex:none;display:flex;gap:5px}
+.gd-improve-actions button{font-size:.68rem;min-height:32px;padding:4px 8px}
+.gd-improve-tools{display:flex;flex-wrap:wrap;gap:8px;margin-top:11px}
+.gd-improve-tools button{font-size:.78rem;min-height:38px}
+.gd-improve-reply{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin-top:11px;font-size:.72rem;color:var(--gd-muted)}
+.gd-improve-reply span{flex:1 1 100%}
+.gd-improve-reply input{flex:1;min-width:140px;font:inherit;font-size:.8rem;padding:7px 9px;border:1px solid var(--gd-line);border-radius:6px}
+.gd-improve-reply button{min-height:38px;font-size:.76rem}
+#improve-fallback{width:100%;margin-top:10px;font-family:ui-monospace,Menlo,monospace;font-size:.72rem;padding:8px;border:1px solid var(--gd-line);border-radius:6px}
+.gd-improve-note{margin:11px 0 0;font-size:.68rem;line-height:1.5;color:var(--gd-muted)}
+@media(max-width:620px){.gd-improve-entry{flex-direction:column}.gd-improve-entry button{width:100%}}
