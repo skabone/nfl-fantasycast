@@ -1,1 +1,1 @@
-window.NFL_DELIVERY = {"mode": "hosted", "profileRequired": true, "build": "2026-09-20-app-7.1", "publicUrl": "https://skabone.github.io/nfl-fantasycast/", "builtAt": "2026-09-21T03:39:19+00:00"};
+window.NFL_DELIVERY = {"mode": "hosted", "profileRequired": true, "build": "2026-09-21-app-8", "publicUrl": "https://skabone.github.io/nfl-fantasycast/", "builtAt": "2026-09-22T01:32:53+00:00"};
