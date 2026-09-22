@@ -142,3 +142,15 @@ body.rail-closed.rail-peek .pane-reopen-left{z-index:80;box-shadow:0 2px 10px rg
 body.rail-closed.rail-peek #league-rail .pane-grip{display:none}
 @media(prefers-reduced-motion:reduce){body.rail-closed.rail-peek #league-rail{animation:none}}
 @media(max-width:900px){body.rail-closed.rail-peek #league-rail{position:static;box-shadow:none;animation:none}}
+
+/* The build, so it is always obvious whether this is the current app. */
+.rail-build{margin-top:10px;padding-top:9px;border-top:1px solid var(--line);font-size:.62rem;line-height:1.5;color:var(--muted)}
+.rail-build #rail-build-id{display:block;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+#rail-build-update{width:100%;margin-top:6px;min-height:34px;font-size:.7rem;font-weight:650;background:#1f6b4b;color:#fff;border-color:#1f6b4b;border-radius:7px}
+#rail-build-update:hover{background:#18563c}
+.league-rail[data-compact] .rail-build{text-align:center}
+.league-rail[data-compact] #rail-build-id{font-size:0}
+.league-rail[data-compact] #rail-build-id::before{content:"ⓘ";font-size:.9rem}
+.league-rail[data-compact] #rail-build-update{font-size:0;min-height:34px}
+.league-rail[data-compact] #rail-build-update::before{content:"⬆";font-size:.95rem}
+@media(max-width:900px){.rail-build{grid-column:1/-1;margin-top:6px;padding-top:6px}}

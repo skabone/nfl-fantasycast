@@ -198,6 +198,41 @@
   window.addEventListener('hashchange',()=>route());
   document.addEventListener('nfl:win-chance-update',syncLeagueChances);
 
+  // The build, always on screen, so it is obvious whether you are looking at the current app.
+  // A new shell installs in the background and normally waits for a deliberate restart; waiting
+  // silently made "reopen the app" look like nothing had shipped. A shell that is already waiting
+  // when the page loads is therefore activated straight away — a cold start is the safe moment —
+  // while one that arrives mid-session still waits for the button, so the app never swaps mid-game.
+  (function buildBadge(){
+    const label=$('rail-build-id'), button=$('rail-build-update');
+    if(label)label.textContent='Build '+(window.NFL_DELIVERY?.build||'local');
+    if(!('serviceWorker' in navigator))return;
+    let reloading=false, requested=false;
+    navigator.serviceWorker.addEventListener('controllerchange',()=>{
+      // Only for a swap this page asked for. A first install also changes the controller, and
+      // reloading then would restart the app the very first time it is ever opened.
+      if(!requested||reloading)return;reloading=true;location.reload();
+    });
+    // atLoad means the shell was already waiting when this page opened — the safe moment to swap.
+    // One that finishes installing later always waits for the button, whatever the clock says.
+    const offer=(registration,atLoad)=>{
+      const waiting=registration?.waiting;
+      if(!waiting)return;
+      // Replacing a shell only makes sense when one is already in charge.
+      if(atLoad&&navigator.serviceWorker.controller){requested=true;waiting.postMessage({type:'ACTIVATE_UPDATE'});return;}
+      if(button){button.hidden=false;button.onclick=()=>{button.disabled=true;button.textContent='Restarting…';requested=true;waiting.postMessage({type:'ACTIVATE_UPDATE'});};}
+    };
+    navigator.serviceWorker.getRegistration().then(registration=>{
+      if(!registration)return;
+      offer(registration,true);
+      registration.addEventListener('updatefound',()=>{
+        const installing=registration.installing;
+        installing?.addEventListener('statechange',()=>{if(installing.state==='installed')offer(registration,false);});
+      });
+    }).catch(()=>{});
+  })();
+
+
   // Two side panels, in Gena's shape: drag the grip to resize, hide either one independently, and both
   // choices stay on this device. Widths are clamped so the centre can never be squeezed away, and the
   // whole mechanism stands down on narrow windows where the panels stack instead.
