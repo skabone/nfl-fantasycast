@@ -31,9 +31,9 @@
   }
   // The rail is narrow and can be dragged to a strip of icons, so the row carries the short form.
   function scoreText(row){
-    if(!row||!row.checkedAt)return row&&row.status==='failed'?'Scores · failed':'Scores —';
+    if(!row||!row.checkedAt)return row&&row.status==='failed'?'check failed':'—';
     const trailing=row.status==='failed'?' · failed':['stale','unavailable'].includes(row.status)?' · stale':'';
-    return `${row.snapshot?'Saved scores':'Scores'} ${scoreAgo(row)}${trailing}`;
+    return `${row.snapshot?'saved ':''}${scoreAgo(row)}${trailing}`;
   }
   // The unabbreviated version of the same fact, for the accessible description.
   function scoreDetail(row){
@@ -50,33 +50,57 @@
   }
   document.addEventListener('nfl:league-scores',e=>{
     for(const row of (e.detail&&Array.isArray(e.detail.leagues))?e.detail.leagues:[])if(row&&typeof row.id==='string')scoreChecks.set(row.id,row);
-    renderScoreChecks();syncLeagueChances();
+    renderScoreChecks();syncLeagueRows();
   });
   setInterval(()=>{if(!document.hidden&&document.querySelector('.league-scores'))renderScoreChecks();},1000);
-  function syncLeagueChances(){
-    let summaries=[];try{const values=window.NFLWinChance?.summaries(contextLeagues,{now:Date.now()});if(Array.isArray(values))summaries=values;}catch{}
-    const byId=new Map(summaries.filter(x=>x&&typeof x.leagueId==='string').map(x=>[x.leagueId,x])),ranked=[];
+  // The rail carries one live number per league. A saved platform percentage cannot refresh, so it is
+  // not shown here at all; the margin and who is still to play are recomputed on every check instead.
+  function marginText(row){
+    if(!row||row.margin===null||row.margin===undefined)return '—';
+    if(row.margin===0)return 'Tied';
+    return (row.margin>0?'+':'\u2212')+Math.abs(row.margin).toFixed(2);
+  }
+  function leftText(row){
+    if(!row)return '';
+    const own=Number(row.remainingOwn)||0,opponent=Number(row.remainingOpponent)||0;
+    return own||opponent?`${own} vs ${opponent} left`:'all final';
+  }
+  // Close enough to be worth watching, judged on the live margin rather than a stale capture.
+  const CLOSE_POINTS=10;
+  function isClose(row){
+    if(!row||row.margin===null||row.margin===undefined)return false;
+    if(row.status==='failed')return false;
+    return Math.abs(row.margin)<CLOSE_POINTS&&((Number(row.remainingOwn)||0)+(Number(row.remainingOpponent)||0))>0;
+  }
+  function syncLeagueRows(){
+    const close=[];
     for(const league of contextLeagues){
       const button=[...document.querySelectorAll('[data-league-open]')].find(b=>b.dataset.leagueOpen===league.id);if(!button)continue;
-      const value=byId.get(league.id),known=value?.kind==='snapshot'&&typeof value.percent==='number'&&Number.isFinite(value.percent)&&value.percent>=0&&value.percent<=100;
-      const label=known?(typeof value.label==='string'?value.label:value.percent+'% to win'):'Chance unavailable';
-      const meta=typeof value?.meta==='string'&&value.kind!=='estimate'?value.meta:league.platform+' · No saved percentage';
-      const detail=typeof value?.detail==='string'&&value.kind!=='estimate'?value.detail:'No platform win percentage has been saved for this league.';
-      const stale=known&&value.stale===true,rank=known&&!stale&&value.percent>0&&value.percent<100&&[1,2].includes(value.attentionRank)?value.attentionRank:null;
-      button.querySelector('.league-chance-label').textContent=known?(value.short||label):'—';
-      button.querySelector('.league-chance-meta').textContent=value?.brief||'No chance saved';
-      button.querySelector('.league-chance-meta').title=meta;
-      const badge=button.querySelector('.league-attention');badge.hidden=!rank;badge.textContent=rank?'Closest '+rank:'';badge.title='Close at last check';
-      const description=button.querySelector('.league-chance-description');description.textContent=[scoreDetail(scoreChecks.get(league.id)),label,meta,rank?'Closest matchup '+rank+' at last check':'',detail].filter(Boolean).join('. ');
-      button.closest('.league-choice').classList.toggle('has-close-matchup',Boolean(rank));button.closest('.league-choice').dataset.chanceState=known?(stale?'stale':'snapshot'):'unavailable';
-      if(rank)ranked.push({id:league.id,rank,name:league.name,button});
+      const row=scoreChecks.get(league.id);
+      const margin=marginText(row),left=leftText(row);
+      button.querySelector('.league-margin').textContent=margin;
+      const leftEl=button.querySelector('.league-left');if(leftEl)leftEl.textContent=left;
+      const near=isClose(row);
+      const badge=button.querySelector('.league-attention');badge.hidden=!near;badge.textContent=near?'Close':'';
+      badge.title=near?`Inside ${CLOSE_POINTS} points with players still to play`:'';
+      const choice=button.closest('.league-choice');
+      choice.classList.toggle('has-close-matchup',near);
+      choice.dataset.marginState=!row||row.margin===null||row.margin===undefined?'unknown':row.margin>0?'ahead':row.margin<0?'behind':'level';
+      const description=button.querySelector('.league-chance-description');
+      description.textContent=[league.name,
+        row&&row.margin!==null&&row.margin!==undefined?(row.margin>0?`Ahead by ${Math.abs(row.margin).toFixed(2)}`:row.margin<0?`Behind by ${Math.abs(row.margin).toFixed(2)}`:'Level'):'No verified margin yet',
+        left?left.replace('vs','of yours versus'):'',scoreDetail(row)].filter(Boolean).join('. ');
+      if(near)close.push({id:league.id,name:league.name,gap:Math.abs(row.margin)});
     }
-    ranked.sort((a,b)=>a.rank-b.rank);
-    const eligible=ranked.length>=1&&ranked.length<=2&&ranked.every((x,i)=>x.rank===i+1)?ranked:[],focus=$('focus-closest');
-    if(eligible.length===1){eligible[0].button.querySelector('.league-attention').textContent='Close matchup';const description=eligible[0].button.querySelector('.league-chance-description');description.textContent=description.textContent.replace('Closest matchup 1 at last check','Close matchup at last check');}
-    if(focus){focus.hidden=!eligible.length;focus.setAttribute('aria-label',eligible.length?'Focus close matchups at last check: '+eligible.map(x=>x.name).join(' and '):'Focus close matchups');}
-    return eligible.map(x=>x.id);
+    close.sort((a,b)=>a.gap-b.gap);
+    const focus=$('focus-closest');
+    if(focus){
+      focus.hidden=!close.length;
+      focus.setAttribute('aria-label',close.length?'Focus the close matchups: '+close.map(x=>x.name).join(' and '):'Focus close matchups');
+    }
+    return close.slice(0,2).map(x=>x.id);
   }
+  const syncLeagueChances=syncLeagueRows;
   function syncContext(){
     syncLeagueChances();
     const path=location.hash.slice(1).split(/[/?]/)[0]||'gameday',n=state.leagueIds.length,all=n>0&&n===contextLeagues.length;
@@ -97,7 +121,7 @@
   }
   function setupContext(){
     const rail=$('league-rail');if(!rail)return;
-    $('league-options').innerHTML=contextLeagues.map((l,i)=>{const initials=l.name.split(/\s+/).filter(Boolean).map(w=>w[0]).join('').slice(0,2).toUpperCase();return `<div class="league-choice" style="--league-ink:${window.NFLGameInsights.color(l.id,contextLeagues).ink};--league-tint:${window.NFLGameInsights.color(l.id,contextLeagues).tint}"><button class="league-open" data-league-open="${esc(l.id)}" title="${esc(l.name)}" aria-label="Open ${esc(l.name)} only" aria-describedby="league-chance-${i}"><span class="league-avatar league-color-${i%5}" aria-hidden="true">${esc(initials)}</span><span class="league-body"><span class="league-name">${esc(l.name)}</span><span class="league-chance"><strong class="league-chance-label">—</strong><span class="league-attention" hidden></span><small class="league-facts"><span class="league-scores">Scores —</span><span class="league-chance-meta">No chance saved</span></small></span><span id="league-chance-${i}" class="sr-only league-chance-description"></span></span></button><label class="league-include" title="Include ${esc(l.name)} in the combined view"><input type="checkbox" data-league-include="${esc(l.id)}" aria-label="Include ${esc(l.name)} in combined view" aria-describedby="league-chance-${i}"><span class="sr-only">Include ${esc(l.name)}</span></label></div>`;}).join('');
+    $('league-options').innerHTML=contextLeagues.map((l,i)=>{const initials=l.name.split(/\s+/).filter(Boolean).map(w=>w[0]).join('').slice(0,2).toUpperCase();return `<div class="league-choice" style="--league-ink:${window.NFLGameInsights.color(l.id,contextLeagues).ink};--league-tint:${window.NFLGameInsights.color(l.id,contextLeagues).tint}"><button class="league-open" data-league-open="${esc(l.id)}" title="${esc(l.name)}" aria-label="Open ${esc(l.name)} only" aria-describedby="league-chance-${i}"><span class="league-avatar league-color-${i%5}" aria-hidden="true">${esc(initials)}</span><span class="league-body"><span class="league-name">${esc(l.name)}</span><span class="league-live"><strong class="league-margin">—</strong><span class="league-attention" hidden></span><small class="league-facts"><span class="league-left"></span><span class="league-scores">—</span></small></span><span id="league-chance-${i}" class="sr-only league-chance-description"></span></span></button><label class="league-include" title="Include ${esc(l.name)} in the combined view"><input type="checkbox" data-league-include="${esc(l.id)}" aria-label="Include ${esc(l.name)} in combined view" aria-describedby="league-chance-${i}"><span class="sr-only">Include ${esc(l.name)}</span></label></div>`;}).join('');
     if(!$('focus-closest')){const focus=document.createElement('button');focus.id='focus-closest';focus.className='focus-closest';focus.type='button';focus.textContent='Focus close matchups';focus.title='Close at last check';focus.hidden=true;$('all-leagues').after(focus);}
     renderScoreChecks();
     $('all-leagues').hidden=!contextLeagues.length;$('league-help').hidden=!contextLeagues.length;$('league-import').hidden=Boolean(contextLeagues.length);

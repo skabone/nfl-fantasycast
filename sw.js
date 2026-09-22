@@ -1,5 +1,5 @@
 /* FantasyCast owns only its named caches. Scores and account responses are never cached here. */
-const BUILD='2026-09-22-app-16', PREFIX='nfl-fantasycast-', SHELL=PREFIX+'shell-'+BUILD, MEDIA=PREFIX+'reading-media-v1';
+const BUILD='2026-09-22-app-17', PREFIX='nfl-fantasycast-', SHELL=PREFIX+'shell-'+BUILD, MEDIA=PREFIX+'reading-media-v1';
 const CORE=['index.html','style.css','gameday.css','gameday.js','game-insights.js','app.js','present.js','data.js','delivery.js','profile.js','win-chance.js','improve.js','browser-feed.js','device.js','device.css','league-rail.css','manifest.webmanifest','offline.html','assets/app/icon-192.png','assets/app/icon-512.png','assets/app/icon-180.png','assets/app/icon-maskable-512.png'];
 const here=path=>new URL(path,self.registration.scope).href;
 self.addEventListener('install',event=>event.waitUntil((async()=>{

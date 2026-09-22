@@ -191,3 +191,8 @@
 .gd-search-entry.gd-search-saved .gd-search-detail{font-style:italic;color:var(--gd-muted)}
 .gd-search-note{margin:10px 0 0;font-size:.68rem;line-height:1.5;color:var(--gd-muted)}
 @media(max-width:620px){.gd-search-entry{font-size:.74rem}.gd-search-entry .gd-search-detail{margin-left:0;flex:1 1 100%}}
+
+/* The update status is a line of text, not a card. */
+.gd-refresh-line{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 14px;margin:0 0 14px;padding:0;background:none;border:0;font-size:.76rem;color:var(--gd-muted)}
+.gd-refresh-line .gd-health{display:inline-flex;align-items:baseline;gap:7px;padding:0;background:none;border:0}
+.gd-refresh-line #gd-age{font-variant-numeric:tabular-nums}

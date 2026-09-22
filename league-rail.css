@@ -88,3 +88,41 @@ body:not(.pane-resizing) .app-frame{transition:grid-template-columns .16s ease}
 .league-rail[data-compact] .focus-closest::before{content:"◎";font-size:1.1rem}
 .league-rail[data-compact] #league-import{font-size:0;min-height:40px;padding:6px 2px}
 .league-rail[data-compact] #league-import::before{content:"＋";font-size:1.05rem}
+
+/* ─ Rows, not cards ──────────────────────────────────────────────────────────────────────────────
+   The rail is a list. A colour bar and weight carry the league; the boxes were doing nothing. */
+.league-options{gap:0}
+.league-choice{background:transparent;border:0;border-left:3px solid transparent;border-radius:0;align-items:center}
+.league-choice+.league-choice{border-top:1px solid var(--line)}
+.league-choice.is-selected{background:transparent;border-left-color:var(--league-ink,#2857b8)}
+.league-choice.is-selected .league-name{color:var(--ink)}
+.league-choice:hover{background:var(--wash,#f2f6fb)}
+.league-open{padding:9px 4px 9px 9px;min-height:54px;border-radius:0}
+.league-open:hover{background:transparent}
+.league-include{border-left:0}
+.league-margin{display:block;font-size:1rem;line-height:1.15;font-weight:750;font-variant-numeric:tabular-nums;color:var(--ink)}
+.league-live{display:block;margin-top:3px}
+.league-choice[data-margin-state=ahead] .league-margin{color:#1f6b4b}
+.league-choice[data-margin-state=behind] .league-margin{color:#94441c}
+.league-choice[data-margin-state=unknown] .league-margin{color:#93a3b6;font-weight:600}
+.league-facts{display:flex;flex-wrap:wrap;gap:0 7px;margin-top:2px;font-size:.63rem}
+.league-facts>span{display:inline;white-space:nowrap}
+.league-facts>.league-left:not(:empty)+.league-scores::before{content:"· "}
+.league-choice.has-close-matchup{box-shadow:none;border-left-color:#c1983c}
+.league-attention{margin-top:3px}
+
+/* Auto refresh and Refresh now live at the foot of the rail, not across the top of the workspace. */
+#league-rail-tools{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.rail-tools{display:flex;flex-direction:column;gap:6px}
+.rail-tools button{width:100%;justify-content:flex-start;min-height:38px;font-size:.76rem;border-radius:7px}
+.league-rail[data-compact] #league-rail-tools{margin-top:10px;padding-top:8px}
+.league-rail[data-compact] .rail-tools button{font-size:0;min-height:38px;padding:6px 2px;justify-content:center}
+.league-rail[data-compact] .rail-tools button[data-action=auto]::before{content:"↻";font-size:1.05rem}
+.league-rail[data-compact] .rail-tools button[data-action=refresh]::before{content:"⟳";font-size:1.05rem}
+@media(max-width:900px){
+  #league-rail-tools{grid-column:1/-1;margin-top:8px;padding-top:8px}
+  .rail-tools{flex-direction:row}
+  .rail-tools button{width:auto}
+  .league-choice{border-left-width:4px;border-top:0}
+  .league-choice+.league-choice{border-top:0}
+}

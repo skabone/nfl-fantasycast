@@ -11,12 +11,12 @@
   const dateLabel=v=>{const d=new Date(v+'T12:00:00');return Number.isNaN(d.getTime())?v:d.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'});};
   const timeLabel=v=>{const d=new Date(v);return Number.isNaN(d.getTime())?'Time unavailable':d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});};
   const stamp=v=>{if(!v)return 'No successful check';const d=new Date(v);return Number.isNaN(d.getTime())?'No successful check':d.toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit',second:'2-digit'});};
-  let host=null, rail=null, options={}, timer=0, dashboardRequest=null, gameRequest=null, dashboardSeq=0, gameSeq=0, refreshSeq=0;
+  let host=null, rail=null, tools=null, options={}, timer=0, dashboardRequest=null, gameRequest=null, dashboardSeq=0, gameSeq=0, refreshSeq=0;
   let s, ageTimer=0, enrichmentRequest=null, newsRequest=null, newsTimer=0, newsSeq=0;
   const NEWS_MS=300000;
   const I=window.NFLGameInsights;
   // Game Day renders into two containers now: the centre workspace and the NFL side panel.
-  const panes=()=>[host,rail].filter(Boolean);
+  const panes=()=>[host,rail,tools].filter(Boolean);
   const q=sel=>{for(const pane of panes()){const el=pane.querySelector(sel);if(el)return el;}return null;};
   const qa=sel=>panes().flatMap(pane=>[...pane.querySelectorAll(sel)]);
   const owns=node=>Boolean(node)&&panes().some(pane=>pane.contains(node));
@@ -89,7 +89,13 @@
       const held=scoreChecks.get(id)||{};
       if(at&&(!held.checkedAt||Date.parse(at)>Date.parse(held.checkedAt)))scoreChecks.set(id,{checkedAt:at,provider:source.provider||null});
       const kept=scoreChecks.get(id)||{};
-      return {id,status:record.error?'failed':status,checkedAt:kept.checkedAt||null,provider:kept.provider||source?.provider||null,snapshot:status==='snapshot',snapshotAt:status==='snapshot'?source?.fetchedAt||null:null};
+      const m=record.data?.matchup,own=m?.own,opponent=m?.opponent;
+      const margin=finite(own?.points)&&finite(opponent?.points)?Math.round((own.points-opponent.points)*100)/100:null;
+      const left=side=>{const c=I.counts(m?.[side]?.starters,weekGames());return c.live+c.upcoming;};
+      return {id,status:record.error?'failed':status,checkedAt:kept.checkedAt||null,provider:kept.provider||source?.provider||null,
+        snapshot:status==='snapshot',snapshotAt:status==='snapshot'?source?.fetchedAt||null:null,
+        margin,ownPoints:finite(own?.points)?own.points:null,opponentPoints:finite(opponent?.points)?opponent.points:null,
+        remainingOwn:m?left('own'):0,remainingOpponent:m?left('opponent'):0};
     }).filter(Boolean);
     if(rows.length)document.dispatchEvent(new CustomEvent('nfl:league-scores',{detail:{leagues:rows}}));
   }
@@ -288,10 +294,11 @@
   function region(id,html){const el=q('#'+id);if(!el)return;const next=document.createElement('div');next.innerHTML=html;const active=document.activeElement, key=owns(active)?active.dataset.key:null;const open=el.scrollTop;const holder=el.cloneNode(false);holder.append(...next.childNodes);morph(el,holder);el.scrollTop=open;if(key&&document.activeElement!==active){qa('[data-key]').find(x=>x.dataset.key===key)?.focus({preventScroll:true});}}
   function shell(){
     rail=document.getElementById('game-rail-body');
+    tools=document.getElementById('league-rail-tools');
     // Centre: the two equal cards. Side panel: the NFL slate and the selected game.
     host.innerHTML=`<div class="gameday" data-focus="${s.focus}" data-density="${s.density}">
     <header class="gd-heading"><div><h1>Game Day</h1><p>Your matchup. Every game. The plays that matter.</p></div><div class="gd-mode" aria-label="Primary view"><button data-action="focus" data-value="matchup" data-key="view-matchup" aria-pressed="${s.focus==='matchup'}">My matchup</button><button data-action="focus" data-value="game" data-key="view-game" aria-pressed="${s.focus==='game'}">Game room</button></div></header>
-    <div class="gd-refresh-bar"><div id="gd-health" class="gd-health" role="status" aria-live="polite"></div><div class="gd-update-actions"><span id="gd-age" aria-live="off"></span><button data-action="auto" data-key="auto" aria-pressed="${s.auto}">Auto refresh on</button><button data-action="refresh" data-key="refresh">Refresh now</button></div></div>
+    <p class="gd-refresh-line"><span id="gd-health" class="gd-health" role="status" aria-live="polite"></span><span id="gd-age" aria-live="off"></span></p>
     <div class="gd-centre">
     <section class="gd-panel gd-score-panel" aria-labelledby="gd-score-title"><header class="gd-panel-head"><h2 id="gd-score-title" tabindex="-1">Your fantasy scorecards</h2><span id="gd-score-meta" class="gd-panel-meta"></span></header><div id="gd-score" aria-label="Weekly fantasy matchup"></div></section>
     <section id="gd-rooting" aria-label="What you’re rooting for"></section><section id="gd-news" aria-label="Around the NFL"></section><section id="gd-improve" aria-label="Notes for Claude"></section><div id="gd-changes"></div>
@@ -304,6 +311,7 @@
     <section class="gd-slate" aria-labelledby="gd-slate-title"><div class="gd-section-head"><div><h2 id="gd-slate-title">${esc(dateLabel(s.date))}</h2><p id="gd-slate-meta" class="gd-muted">Checking today’s NFL games…</p></div><div class="gd-filter" aria-label="Filter NFL games"><button data-action="filter" data-value="all" data-key="filter-all" aria-pressed="true">All games</button><button data-action="filter" data-value="mine" data-key="filter-mine" aria-pressed="false">My players</button><button data-action="filter" data-value="matchup" data-key="filter-matchup" aria-pressed="false">My matchup</button></div></div><div id="gd-games" class="gd-game-list"></div></section>
     <section class="gd-panel gd-game-panel" aria-labelledby="gd-detail-title"><header class="gd-panel-head"><h2 id="gd-detail-title" tabindex="-1">Inside the game</h2><div class="gd-detail-actions"><span id="gd-detail-state" class="gd-muted"></span><button class="gd-back-lineup" data-action="back-lineup" data-key="back-lineup">Back to lineup</button></div></header><div id="gd-game-score" class="gd-game-score"></div><div class="gd-detail-tabs" aria-label="Selected game detail">${['field','leaders','plays','highlights'].map(k=>`<button data-action="detail" data-value="${k}" data-key="detail-${k}" aria-pressed="${k==='field'}">${k[0].toUpperCase()+k.slice(1)}</button>`).join('')}</div><div id="gd-game-detail" class="gd-game-detail"></div><div id="gd-player-context"></div><div id="gd-game-sources" class="gd-game-sources"></div></section>
   </div>`;
+    if(tools)tools.innerHTML=`<div class="rail-tools"><button data-action="auto" data-key="auto" aria-pressed="${s.auto}">Auto refresh on</button><button data-action="refresh" data-key="refresh">Refresh now</button></div>`;
     q('#gd-density').value=s.density;
     const picker=q('.gd-league-label');if(picker)picker.hidden=options.hideLeaguePicker===true;
     const date=q('#gd-date');if(date){date.min=dateBound(-370);date.max=dateBound(370);}
@@ -388,7 +396,7 @@
   function invalidate(){refreshSeq++;dashboardSeq++;gameSeq++;dashboardRequest?.abort();gameRequest?.abort();enrichmentRequest?.abort();clearTimeout(timer);s.loading=false;s.gameLoading=false;}
   function visibility(){if(!host)return;if(document.hidden){invalidate();clearTimeout(newsTimer);renderHealth();}else{renderHealth();if(s.auto)refresh();if(Date.now()-Date.parse(list(s.news?.sources)[0]?.fetchedAt||0)>NEWS_MS||!s.newsLoaded)loadNews();else scheduleNews();}}
   function imageError(e){if(e.target.tagName!=='IMG')return;const img=e.target,p=img.closest('[data-player-id]'),player=p?allPlayers(p.dataset.playerSide).find(x=>String(x.id)===p.dataset.playerId):null;if(player){const fallback=document.createElement('span');fallback.className=img.className+' gd-initials';fallback.textContent=String(player.name||'?').split(' ').map(x=>x[0]).slice(0,2).join('');fallback.title='Photo unavailable';img.replaceWith(fallback);}else img.classList.add('gd-image-failed');}
-  function unmount(){if(!host)return;invalidate();for(const pane of panes()){pane.removeEventListener('click',click);pane.removeEventListener('change',change);pane.removeEventListener('input',searchInput);pane.removeEventListener('error',imageError,true);}if(rail)rail.innerHTML='';document.removeEventListener('visibilitychange',visibility);document.removeEventListener('nfl:improve-change',improveChanged);document.removeEventListener('keydown',searchShortcut);clearInterval(ageTimer);clearTimeout(newsTimer);newsRequest?.abort();newsSeq++;host=null;rail=null;options={};}
+  function unmount(){if(!host)return;invalidate();for(const pane of panes()){pane.removeEventListener('click',click);pane.removeEventListener('change',change);pane.removeEventListener('input',searchInput);pane.removeEventListener('error',imageError,true);}if(rail)rail.innerHTML='';if(tools)tools.innerHTML='';document.removeEventListener('visibilitychange',visibility);document.removeEventListener('nfl:improve-change',improveChanged);document.removeEventListener('keydown',searchShortcut);clearInterval(ageTimer);clearTimeout(newsTimer);newsRequest?.abort();newsSeq++;host=null;rail=null;tools=null;options={};}
   function mount(container,config={}){unmount();document.addEventListener('nfl:improve-change',improveChanged);document.addEventListener('keydown',searchShortcut);host=container;options=config;const pref=saved(),ids=selectedIds(Array.isArray(config.leagueIds)?config.leagueIds:config.leagueId&&config.leagueId!=='all'?[String(config.leagueId)]:leagues().map(l=>String(l.id)));s={league:ids.length===1?ids[0]:'all',leagueIds:ids,overview:[],aggregate:{own:[],opponent:[]},boxes:{},changes:[],scenario:[],remaining:'',playerGameFilter:'',query:'',news:null,newsLoaded:false,newsOpen:false,newsMineOnly:false,failures:0,date:localDate(),focus:['matchup','game'].includes(pref.focus)?pref.focus:'matchup',density:pref.density==='compact'?'compact':'comfortable',auto:pref.auto!==false,filter:'all',roster:'starters',detailTab:'field',dashboard:null,detail:null,gameId:'',player:'',returnKey:'',loading:false,gameLoading:false,error:'',gameError:''};shell();render();ageTimer=setInterval(updateAge,1000);document.addEventListener('visibilitychange',visibility);if(!document.hidden){refresh();loadNews();}}
   window.NFLGameDay={mount,unmount,setLeague,setLeagues};
 })();
