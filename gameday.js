@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  const POLL_MS=15000, PREF_KEY='nfl-fantasycast-view-v1';
+  const POLL_MS=15000, RAIL_MS=60000, PREF_KEY='nfl-fantasycast-view-v1';
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const list=v=>Array.isArray(v)?v:[];
   const finite=v=>typeof v==='number'&&Number.isFinite(v);
@@ -82,7 +82,8 @@
   // failed refresh, a retained stale source or an NFL-only update must never advance it.
   const scoreChecks=new Map();
   function publishScoreChecks(){
-    const rows=records().map(record=>{
+    const known=leagues().map(l=>String(l.id)).map(id=>s.railData[id]).filter(Boolean);
+    const rows=(known.length?known:records()).map(record=>{
       const id=String(record.league?.id||'');if(!id)return null;
       const source=primaryFantasySource(record),status=source?.status||'unavailable';
       const at=['live','cached'].includes(status)&&Date.parse(source.fetchedAt)?source.fetchedAt:null;
@@ -175,25 +176,35 @@
   function newsRelevance(article){
     // A player can start for you in one league and against you in another, so both sides are kept.
     const players=new Map(),clubs=new Map(),seen=new Set();
-    const add=(map,key,value,sides)=>{const entry=map.get(key)||{label:value,sides:new Set()};for(const side of sides)entry.sides.add(side);map.set(key,entry);};
+    // Each side also remembers which leagues it came from, so a headline can wear that league's colour.
+    const add=(map,key,value,bySide)=>{
+      const entry=map.get(key)||{label:value,sides:new Set(),leagues:new Map()};
+      for(const [side,ids] of bySide){entry.sides.add(side);const have=entry.leagues.get(side)||new Set();for(const id of ids)have.add(id);entry.leagues.set(side,have);}
+      map.set(key,entry);
+    };
     for(const side of ['own','opponent'])for(const p of allPlayers(side)){
       const key=String(p.id||p.name||'');if(!key||seen.has(key))continue;seen.add(key);
       // Sides come from the player's own exposure, not from which list they happen to be read from:
       // a deduplicated shared player sits in both, and which one resolves first is not meaningful.
-      const sides=new Set(list(p.impacts).map(e=>e.side).filter(Boolean));
-      if(!sides.size)sides.add(side);
-      if(p.name)add(players,String(p.name).toLowerCase(),p.name,sides);
-      if(p.team)add(clubs,String(p.team).toUpperCase(),p.team,sides);
+      const bySide=new Map();
+      for(const e of list(p.impacts)){
+        if(!e.side)continue;
+        if(!bySide.has(e.side))bySide.set(e.side,new Set());
+        bySide.get(e.side).add(String(e.league?.id||''));
+      }
+      if(!bySide.size)bySide.set(side,new Set([String(selectedLeague().id||'')]));
+      if(p.name)add(players,String(p.name).toLowerCase(),p.name,bySide);
+      if(p.team)add(clubs,String(p.team).toUpperCase(),p.team,bySide);
     }
     const hits=[];
     for(const name of list(article.athletes)){
       const entry=players.get(String(name).toLowerCase());
-      if(entry)for(const side of ['own','opponent'])if(entry.sides.has(side))hits.push({kind:'player',label:entry.label,side});
+      if(entry)for(const side of ['own','opponent'])if(entry.sides.has(side))for(const leagueId of (entry.leagues.get(side)||[''])) hits.push({kind:'player',label:entry.label,side,leagueId});
     }
     if(!hits.length)for(const team of list(article.teams)){
       const lower=String(team).toLowerCase();
       const entry=[...clubs.values()].find(c=>lower.includes(String(c.label).toLowerCase())||lower.endsWith(' '+String(c.label).toLowerCase()));
-      if(entry){for(const side of ['own','opponent'])if(entry.sides.has(side))hits.push({kind:'team',label:team,side});break;}
+      if(entry){for(const side of ['own','opponent'])if(entry.sides.has(side))for(const leagueId of (entry.leagues.get(side)||['']))hits.push({kind:'team',label:team,side,leagueId});break;}
     }
     return hits.slice(0,3);
   }
@@ -215,7 +226,10 @@
     return `<details class="gd-news-card" data-key="news" ${s.newsOpen?'open':''}><summary><span><b>Headlines</b><span>${esc(headline)}</span></span><small>Open the headlines</small></summary><div class="gd-news-body">
       ${mine.length?`<div class="gd-news-filter"><button data-action="news-filter" data-value="${s.newsMineOnly?'all':'mine'}" data-key="news-filter" aria-pressed="${Boolean(s.newsMineOnly)}">${s.newsMineOnly?'Show every story':'Only stories about my players'}</button></div>`:''}
       ${s.news?.error?`<p class="gd-inline-warning">${esc(s.news.error)}</p>`:''}
-      ${shown.length?`<ol class="gd-news-list">${shown.map(a=>`<li class="${a.hits.length?'gd-news-mine':''}" data-key="news-${esc(a.id)}">${a.imageUrl?`<img class="gd-news-thumb" src="${esc(a.imageUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer">`:''}<div><p class="gd-news-head">${link(a.url,a.headline,'gd-news-link')}</p>${a.hits.length?`<p class="gd-news-hits">${a.hits.map(h=>`<span class="gd-impact-chip gd-side-${esc(h.side)}">${h.side==='own'?'Your':'Opponent\u2019s'} ${esc(h.label)}</span>`).join(' ')}</p>`:''}${a.description?`<p class="gd-news-desc">${esc(a.description)}</p>`:''}<p class="gd-news-meta"><span>${esc(a.type)}</span> \u00b7 <time>${esc(newsAge(a.published))}</time></p></div></li>`).join('')}</ol>`:'<p class="gd-muted">No stories match this filter right now.</p>'}
+      ${shown.length?`<ol class="gd-news-list">${shown.map(a=>{
+        const touched=[...new Set(a.hits.map(h=>String(h.leagueId||'')).filter(Boolean))];
+        const ink=touched.length>1?'#6935b7':touched.length===1?I.color(touched[0],leagues()).ink:'';
+        return `<li class="${a.hits.length?'gd-news-mine':''}${touched.length>1?' gd-news-many':''}" ${ink?`style="--news-ink:${ink}"`:''} data-key="news-${esc(a.id)}">${a.imageUrl?`<img class="gd-news-thumb" src="${esc(a.imageUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer">`:''}<div><p class="gd-news-head">${link(a.url,a.headline,'gd-news-link')}</p>${a.hits.length?`<p class="gd-news-hits">${a.hits.map(h=>`<span class="gd-impact-chip gd-side-${esc(h.side)}" ${h.leagueId?`style="${leagueStyle(h.leagueId)}"`:''}><i class="gd-news-team" style="background:${h.leagueId?I.color(String(h.leagueId),leagues()).ink:'#7c8aa0'}"></i>${h.side==='own'?'Your':'Opponent\u2019s'} ${esc(h.label)}</span>`).join(' ')}</p>`:''}${a.description?`<p class="gd-news-desc">${esc(a.description)}</p>`:''}<p class="gd-news-meta"><span>${esc(a.type)}</span> \u00b7 <time>${esc(newsAge(a.published))}</time></p></div></li>`;}).join('')}</ol>`:'<p class="gd-muted">No stories match this filter right now.</p>'}
       <p class="gd-news-caveat">Headlines, descriptions and times are ESPN\u2019s. A story naming your player is reporting \u2014 not an injury ruling, a start/sit call or a waiver recommendation. Open the story for the reporting itself.</p>
       ${source?`<p class="gd-news-source"><b>${esc(source.provider||'News source')}</b> ${esc(source.status==='live'?'checked':source.status||'unavailable')} \u00b7 ${esc(stamp(source.fetchedAt))}</p>`:''}
     </div></details>`;
@@ -295,23 +309,34 @@
   function shell(){
     rail=document.getElementById('game-rail-body');
     tools=document.getElementById('league-rail-tools');
-    // Centre: the two equal cards. Side panel: the NFL slate and the selected game.
+    // Centre: the scorecards, then the roster and the selected game side by side.
     host.innerHTML=`<div class="gameday" data-focus="${s.focus}" data-density="${s.density}">
     <h1 class="sr-only">Game Day</h1>
     <p class="gd-refresh-line"><span id="gd-health" class="gd-health" role="status" aria-live="polite"></span><span id="gd-age" aria-live="off"></span></p>
     <div class="gd-centre">
     <section class="gd-panel gd-score-panel" aria-labelledby="gd-score-title"><header class="gd-panel-head"><h2 id="gd-score-title" tabindex="-1">Scorecards</h2><span id="gd-score-meta" class="gd-panel-meta"></span></header><div id="gd-score" aria-label="Weekly fantasy matchup"></div></section>
-    <section id="gd-rooting" aria-label="Rooting for"></section><section id="gd-news" aria-label="Headlines"></section><section id="gd-improve" aria-label="Notes for Claude"></section><div id="gd-changes"></div>
+    <div class="gd-work">
     <section class="gd-panel gd-matchup-panel" aria-labelledby="gd-lineup-title"><header class="gd-panel-head"><h2 id="gd-lineup-title" tabindex="-1">Matchup</h2><label class="gd-density-label">Rows<select id="gd-density" data-key="density"><option value="comfortable">Comfortable</option><option value="compact">Compact</option></select></label></header><div class="gd-search"><label class="sr-only" for="gd-search">Find a player across all your leagues</label><input id="gd-search" type="search" data-key="search" autocomplete="off" spellcheck="false" placeholder="Find a player or NFL team — press /"><button data-action="clear-search" data-key="clear-search" hidden>Clear</button></div><div class="gd-roster-tabs" aria-label="Roster selection"><button data-action="roster" data-value="starters" data-key="roster-starters" aria-pressed="true">Starters</button><button data-action="roster" data-value="bench" data-key="roster-bench" aria-pressed="false">Bench &amp; reserves</button></div><div id="gd-player-filter"></div><div class="gd-state-legend"><span><i class="gd-legend-active"></i>On offense</span><span><i></i>Game live</span><span class="gd-legend-final">Final</span><span class="gd-legend-shared">Purple = shared player</span></div><div id="gd-lineups"></div><p class="gd-panel-foot">Select a player to follow their NFL game and see this league’s scoring context.</p></section>
+    <section class="gd-panel gd-game-panel" aria-labelledby="gd-detail-title"><header class="gd-panel-head"><h2 id="gd-detail-title" tabindex="-1">Inside the game</h2><div class="gd-detail-actions"><span id="gd-detail-state" class="gd-muted"></span><button class="gd-back-lineup" data-action="back-lineup" data-key="back-lineup">Back to lineup</button></div></header><div id="gd-game-score" class="gd-game-score"></div><div class="gd-detail-tabs" aria-label="Selected game detail">${['field','leaders','plays','highlights'].map(k=>`<button data-action="detail" data-value="${k}" data-key="detail-${k}" aria-pressed="${k==='field'}">${k[0].toUpperCase()+k.slice(1)}</button>`).join('')}</div><div id="gd-game-detail" class="gd-game-detail"></div><div id="gd-player-context"></div><div id="gd-game-sources" class="gd-game-sources"></div></section>
+    </div>
+    <div id="gd-changes"></div><section id="gd-improve" aria-label="Notes"></section>
     </div>
     <details class="gd-provenance"><summary>Data sources and what the numbers mean</summary><div id="gd-sources"></div><p>Fantasy points are the league platform’s reported weekly totals. NFL scores and game statistics come from the game feed. Sources may update at different times; totals can change after scoring corrections.</p><p>The date picker changes the NFL slate in the games panel. Your fantasy matchup follows the provider’s current week, and your players keep that week’s games whichever date you are browsing. Saved lessons and news keep their own research dates.</p></details><p class="gd-bottom-note">Press <kbd>[</kbd> or <kbd>]</kbd> to hide or show the side panels. Times use your device’s time zone. Live games refresh every 15 seconds while Game Day is visible; quiet slates refresh every 60 seconds. Source delays still apply. Use your fantasy platform for lineup changes.</p>
   </div>`;
+    // Right panel: the NFL slate, what you are rooting for, and the day's headlines.
     if(rail)rail.innerHTML=`<div class="gd-rail" data-focus="${s.focus}" data-density="${s.density}">
-    <div class="gd-toolbar"><label class="gd-league-label" for="gd-league">Fantasy team / league<select id="gd-league" data-key="league"><option value="all">All leagues</option>${leagues().map(l=>`<option value="${esc(l.id)}" ${String(l.id)===s.league?'selected':''}>${esc(l.name)}</option>`).join('')}</select></label><label for="gd-date">NFL game date<input id="gd-date" data-key="date" type="date" value="${s.date}" min="2000-01-01" max="2100-12-31"></label><button data-action="today" data-key="today">Today</button></div>
-    <section class="gd-slate" aria-labelledby="gd-slate-title"><div class="gd-section-head"><div><h2 id="gd-slate-title">${esc(dateLabel(s.date))}</h2><p id="gd-slate-meta" class="gd-muted">Checking today’s NFL games…</p></div><div class="gd-filter" aria-label="Filter NFL games"><button data-action="filter" data-value="all" data-key="filter-all" aria-pressed="true">All games</button><button data-action="filter" data-value="mine" data-key="filter-mine" aria-pressed="false">My players</button><button data-action="filter" data-value="matchup" data-key="filter-matchup" aria-pressed="false">My matchup</button></div></div><div id="gd-games" class="gd-game-list"></div></section>
-    <section class="gd-panel gd-game-panel" aria-labelledby="gd-detail-title"><header class="gd-panel-head"><h2 id="gd-detail-title" tabindex="-1">Inside the game</h2><div class="gd-detail-actions"><span id="gd-detail-state" class="gd-muted"></span><button class="gd-back-lineup" data-action="back-lineup" data-key="back-lineup">Back to lineup</button></div></header><div id="gd-game-score" class="gd-game-score"></div><div class="gd-detail-tabs" aria-label="Selected game detail">${['field','leaders','plays','highlights'].map(k=>`<button data-action="detail" data-value="${k}" data-key="detail-${k}" aria-pressed="${k==='field'}">${k[0].toUpperCase()+k.slice(1)}</button>`).join('')}</div><div id="gd-game-detail" class="gd-game-detail"></div><div id="gd-player-context"></div><div id="gd-game-sources" class="gd-game-sources"></div></section>
+    <section class="gd-slate" aria-labelledby="gd-slate-title"><div class="gd-section-head"><div><h2 id="gd-slate-title">${esc(dateLabel(s.date))}</h2><p id="gd-slate-meta" class="gd-muted">Checking today’s NFL games…</p></div></div><div id="gd-games" class="gd-game-list"></div></section>
+    <section id="gd-rooting" aria-label="Rooting for"></section>
+    <section id="gd-news" aria-label="Headlines"></section>
   </div>`;
-    if(tools)tools.innerHTML=`<div class="rail-tools"><button data-action="auto" data-key="auto" aria-pressed="${s.auto}">Auto refresh on</button><button data-action="refresh" data-key="refresh">Refresh now</button></div>`;
+    // Left panel foot: the date and filters that choose the slate, then the update controls.
+    if(tools)tools.innerHTML=`<div class="rail-controls">
+      <label class="gd-league-label" for="gd-league">Fantasy team / league<select id="gd-league" data-key="league"><option value="all">All leagues</option>${leagues().map(l=>`<option value="${esc(l.id)}" ${String(l.id)===s.league?'selected':''}>${esc(l.name)}</option>`).join('')}</select></label>
+      <label class="rail-date" for="gd-date">NFL game date<input id="gd-date" data-key="date" type="date" value="${s.date}" min="2000-01-01" max="2100-12-31"></label>
+      <button data-action="today" data-key="today">Today</button>
+      <div class="gd-filter" aria-label="Filter NFL games"><button data-action="filter" data-value="all" data-key="filter-all" aria-pressed="true">All games</button><button data-action="filter" data-value="mine" data-key="filter-mine" aria-pressed="false">My players</button><button data-action="filter" data-value="matchup" data-key="filter-matchup" aria-pressed="false">My matchup</button></div>
+      <div class="rail-tools"><button data-action="auto" data-key="auto" aria-pressed="${s.auto}">Auto refresh on</button><button data-action="refresh" data-key="refresh">Refresh now</button></div>
+    </div>`;
     q('#gd-density').value=s.density;
     const picker=q('.gd-league-label');if(picker)picker.hidden=options.hideLeaguePicker===true;
     const date=q('#gd-date');if(date){date.min=dateBound(-370);date.max=dateBound(370);}
@@ -325,7 +350,14 @@
   }
   function counts(t,compact=false){let live=0,done=0,remaining=0,unlinked=0;for(const p of list(t?.starters)){const g=weekGames().find(g=>String(g.id)===String(p.gameId));if(g?.state==='in')live++;else if(g?.state==='post')done++;else if(g?.state==='pre')remaining++;else unlinked++;}const parts=[];if(live)parts.push(`${live} ${compact?'live':'playing now'}`);if(remaining)parts.push(`${remaining} ${compact?'upcoming':'yet to play this week'}`);if(done)parts.push(`${done} ${compact?'final':'final this week'}`);if(unlinked)parts.push(`${unlinked} ${compact?'no game':'without a verified game this week'}`);return parts.join(' · ')||'See player rows for game status';}
   function score(){return overviewScore();}
-  function matchupMargin(m,compact=false){if(!finite(m.own?.points)||!finite(m.opponent?.points))return '';const gap=Math.round((m.own.points-m.opponent.points)*100)/100;const text=gap===0?'The matchup is tied':gap>0?`You lead by ${gap.toFixed(2)}`:`You trail by ${Math.abs(gap).toFixed(2)}`;return `<p class="gd-matchup-margin"><b>${esc(text)}</b>${compact?'':'<span>Based on reported points at this check</span>'}</p>`;}
+  function matchupMargin(m,compact=false){
+    if(!finite(m.own?.points)||!finite(m.opponent?.points))return '';
+    const gap=Math.round((m.own.points-m.opponent.points)*100)/100;
+    // Just the signed number: ahead is green, behind is red, level is green, and the colour deepens
+    // with the size of the gap so a glance gives direction and comfort at once.
+    const text=gap===0?'Tied':(gap>0?'+':'\u2212')+Math.abs(gap).toFixed(2);
+    const strength=Math.round((0.35+0.65*Math.min(Math.abs(gap),30)/30)*100)/100;
+    return `<p class="gd-matchup-margin" data-margin="${gap>=0?'ahead':'behind'}" style="--margin-strength:${strength}"><b>${esc(text)}</b><span class="sr-only">${gap===0?'level':gap>0?'ahead by '+Math.abs(gap).toFixed(2):'behind by '+Math.abs(gap).toFixed(2)}</span>${compact?'':'<span>Based on reported points at this check</span>'}</p>`;}
   function matchupFreshness(){const sources=list(s.dashboard?.sources).filter(x=>x.status==='snapshot'||/sleeper|fantasy|roster|matchup/i.test(x.provider||''));if(!sources.length)return '';return `<div class="gd-matchup-freshness">${sources.map(x=>`<p><b>${esc(x.provider)} ${x.status==='snapshot'?'snapshot':'checked'}</b> · ${esc(stamp(x.fetchedAt))}${x.status==='snapshot'?'<br>Fantasy scores are a saved account snapshot. NFL game updates below are separate.':''}${['stale','unavailable'].includes(x.status)?' · Source '+esc(x.status):''}</p>`).join('')}</div>`;}
   function gameCard(g){const own=connected(g,'own').length,opp=connected(g,'opponent').length;return `<button class="gd-game-card ${g.state==='in'?'gd-game-live':''}" data-action="game" data-value="${esc(g.id)}" data-key="game-${esc(g.id)}" aria-pressed="${String(g.id)===s.gameId}"><span class="gd-card-status">${g.state==='in'?'<i aria-hidden="true"></i>':''}${esc(status(g))}</span>${[g.away,g.home].map(t=>`<span class="gd-card-team">${photo(t?.logo,t?.abbr,'gd-club-logo')}<b>${esc(t?.abbr||t?.name||'?')}</b><strong>${finite(t?.score)?t.score:'—'}</strong></span>`).join('')}<span class="gd-game-connections">${own?`<span class="gd-your-badge">${own} yours</span>`:''}${opp?`<span class="gd-opp-badge">${opp} opponent</span>`:''}${!own&&!opp?'NFL game':''}</span>${watchBadge(g)}</button>`;}
   function renderSlate(){const filtered=games().filter(g=>s.filter==='all'||connected(g,'own').length||s.filter==='matchup'&&connected(g,'opponent').length);region('gd-games',filtered.length?filtered.map(gameCard).join(''):`<div class="gd-empty"><h3>${s.loading&&!s.dashboard?'Loading the NFL slate…':games().length?'No games match this filter.':'No NFL games returned for this date.'}</h3><p>${games().length?'Choose All games to see the complete slate.':'Choose another date or refresh the feed. An unavailable feed is not proof that no games are scheduled.'}</p></div>`);q('#gd-slate-title').textContent=dateLabel(s.date);q('#gd-slate-meta').textContent=`${games().length} ${games().length===1?'game':'games'} returned · ${filtered.length} shown · select a game to follow it`;}
@@ -351,22 +383,40 @@
     const previous=records();s.loading=true;s.error='';renderHealth();
     const request=id=>fetchJSON('/api/fantasycast/dashboard?'+new URLSearchParams({date:s.date,league:id,...(force?{refresh:'1'}:{})}),controller.signal).then(d=>{if(!d||!Array.isArray(d.games))throw new Error('The live desk returned an incomplete response.');return d;});
     try{
+      // Every configured league is checked, not only the ones in focus, so the rail always carries a
+      // current margin for each. A league that is not selected is re-checked on a slower cadence, which
+      // keeps the request count close to what the combined view already made.
+      const selected=s.leagueIds.slice(), every=leagues().map(l=>String(l.id));
+      const due=id=>force||selected.includes(id)||!s.railChecked[id]||Date.now()-s.railChecked[id]>RAIL_MS;
+      const wanted=every.length?every.filter(due):[];
+      // With nothing in focus the NFL board still has to come from somewhere, so ask for it explicitly.
+      const ids=[...wanted,...(selected.length?[]:['none'])];
+      if(!ids.length)ids.push(selected.length?selected[0]:'none');
+      const results=await Promise.allSettled(ids.map(request));
+      if(!host||token!==dashboardSeq)return;
+      ids.forEach((id,i)=>{
+        const league=leagues().find(l=>String(l.id)===id)||{id};
+        if(results[i].status==='fulfilled'){s.railChecked[id]=Date.now();s.railData[id]={league,data:results[i].value,error:''};}
+        else s.railData[id]={league,data:s.railData[id]?.data||null,error:results[i].reason?.message||'This league could not be checked.'};
+      });
+      const recordFor=id=>s.railData[id]||{league:leagues().find(l=>String(l.id)===id)||{id},data:null,error:''};
       if(combined()){
-        const ids=s.leagueIds.slice(),results=await Promise.allSettled((ids.length?ids:['none']).map(request));
-        if(!host||token!==dashboardSeq)return;
-        const previous=s.overview;
-        s.overview=ids.map((id,i)=>({league:leagues().find(l=>String(l.id)===id)||{id},data:results[i].status==='fulfilled'?results[i].value:previous.find(r=>String(r.league.id)===id)?.data||null,error:results[i].status==='rejected'?results[i].reason?.message||'This league could not be checked.':''}));
-        const checked=results.filter(r=>r.status==='fulfilled').map(r=>r.value).sort((a,b)=>(Date.parse(b.generatedAt)||0)-(Date.parse(a.generatedAt)||0));
+        s.overview=selected.map(recordFor);
+        const checked=(selected.length?selected:['none']).map(id=>s.railData[id]?.data).filter(Boolean).sort((a,b)=>(Date.parse(b.generatedAt)||0)-(Date.parse(a.generatedAt)||0));
         const board=checked[0]||s.dashboard;
-        const sources=ids.length?s.overview.flatMap(r=>[...list(r.data?.sources).map(x=>({...x,provider:r.league.name+': '+x.provider})),...(r.error?[{provider:r.league.name,status:r.data?'stale':'unavailable',fetchedAt:r.data?.generatedAt||null,error:r.error}]:[])]):list(board?.sources);
+        const sources=selected.length?s.overview.flatMap(r=>[...list(r.data?.sources).map(x=>({...x,provider:r.league.name+': '+x.provider})),...(r.error?[{provider:r.league.name,status:r.data?'stale':'unavailable',fetchedAt:r.data?.generatedAt||null,error:r.error}]:[])]):list(board?.sources);
         // Combined view: the slate stays the selected date, while the week is the union of every
         // selected league's week so a shared player keeps one verified game across all of them.
         const week=[...new Map([...list(board?.games),...s.overview.flatMap(r=>list(r.data?.weekGames))].filter(g=>g&&g.id).map(g=>[String(g.id),g])).values()];
         s.dashboard={date:s.date,generatedAt:board?.generatedAt||null,games:list(board?.games),weekGames:week,sources,notices:[]};
         s.aggregate=aggregatePlayers(s.overview);
-        const failed=results.filter(r=>r.status==='rejected').length;
-        s.error=failed?(ids.length?`${failed} of ${ids.length} selected league checks failed. Available and retained results are labeled below.`:results[0].reason?.message||'NFL games could not be checked.'):'';
-      }else{const data=await request(s.league);if(!host||token!==dashboardSeq)return;s.dashboard=data;s.overview=[];s.aggregate={own:[],opponent:[]};}
+        const failed=selected.filter(id=>s.railData[id]?.error).length;
+        s.error=failed?(selected.length?`${failed} of ${selected.length} selected league checks failed. Available and retained results are labeled below.`:'NFL games could not be checked.'):'';
+      }else{
+        const own=recordFor(s.league);
+        if(!own.data&&own.error)throw new Error(own.error);
+        s.dashboard=own.data||s.dashboard;s.overview=[];s.aggregate={own:[],opponent:[]};s.error=own.error||'';
+      }
       if(!host||token!==dashboardSeq)return;
       s.loading=false;s.failures=s.error||list(s.dashboard?.sources).some(x=>['stale','unavailable'].includes(x.status))?(s.failures||0)+1:0;
       const delta=I.changes(previous,records(),universe());s.changes=[...delta,...s.changes].slice(0,12);
@@ -397,6 +447,6 @@
   function visibility(){if(!host)return;if(document.hidden){invalidate();clearTimeout(newsTimer);renderHealth();}else{renderHealth();if(s.auto)refresh();if(Date.now()-Date.parse(list(s.news?.sources)[0]?.fetchedAt||0)>NEWS_MS||!s.newsLoaded)loadNews();else scheduleNews();}}
   function imageError(e){if(e.target.tagName!=='IMG')return;const img=e.target,p=img.closest('[data-player-id]'),player=p?allPlayers(p.dataset.playerSide).find(x=>String(x.id)===p.dataset.playerId):null;if(player){const fallback=document.createElement('span');fallback.className=img.className+' gd-initials';fallback.textContent=String(player.name||'?').split(' ').map(x=>x[0]).slice(0,2).join('');fallback.title='Photo unavailable';img.replaceWith(fallback);}else img.classList.add('gd-image-failed');}
   function unmount(){if(!host)return;invalidate();for(const pane of panes()){pane.removeEventListener('click',click);pane.removeEventListener('change',change);pane.removeEventListener('input',searchInput);pane.removeEventListener('error',imageError,true);}if(rail)rail.innerHTML='';if(tools)tools.innerHTML='';document.removeEventListener('visibilitychange',visibility);document.removeEventListener('nfl:improve-change',improveChanged);document.removeEventListener('keydown',searchShortcut);clearInterval(ageTimer);clearTimeout(newsTimer);newsRequest?.abort();newsSeq++;host=null;rail=null;tools=null;options={};}
-  function mount(container,config={}){unmount();document.addEventListener('nfl:improve-change',improveChanged);document.addEventListener('keydown',searchShortcut);host=container;options=config;const pref=saved(),ids=selectedIds(Array.isArray(config.leagueIds)?config.leagueIds:config.leagueId&&config.leagueId!=='all'?[String(config.leagueId)]:leagues().map(l=>String(l.id)));s={league:ids.length===1?ids[0]:'all',leagueIds:ids,overview:[],aggregate:{own:[],opponent:[]},boxes:{},changes:[],scenario:[],remaining:'',playerGameFilter:'',query:'',news:null,newsLoaded:false,newsOpen:false,newsMineOnly:false,failures:0,date:localDate(),focus:['matchup','game'].includes(pref.focus)?pref.focus:'matchup',density:pref.density==='compact'?'compact':'comfortable',auto:pref.auto!==false,filter:'all',roster:'starters',detailTab:'field',dashboard:null,detail:null,gameId:'',player:'',returnKey:'',loading:false,gameLoading:false,error:'',gameError:''};shell();render();ageTimer=setInterval(updateAge,1000);document.addEventListener('visibilitychange',visibility);if(!document.hidden){refresh();loadNews();}}
+  function mount(container,config={}){unmount();document.addEventListener('nfl:improve-change',improveChanged);document.addEventListener('keydown',searchShortcut);host=container;options=config;const pref=saved(),ids=selectedIds(Array.isArray(config.leagueIds)?config.leagueIds:config.leagueId&&config.leagueId!=='all'?[String(config.leagueId)]:leagues().map(l=>String(l.id)));s={league:ids.length===1?ids[0]:'all',leagueIds:ids,overview:[],aggregate:{own:[],opponent:[]},boxes:{},changes:[],scenario:[],remaining:'',playerGameFilter:'',query:'',railData:{},railChecked:{},news:null,newsLoaded:false,newsOpen:false,newsMineOnly:false,failures:0,date:localDate(),focus:['matchup','game'].includes(pref.focus)?pref.focus:'matchup',density:pref.density==='compact'?'compact':'comfortable',auto:pref.auto!==false,filter:'all',roster:'starters',detailTab:'field',dashboard:null,detail:null,gameId:'',player:'',returnKey:'',loading:false,gameLoading:false,error:'',gameError:''};shell();render();ageTimer=setInterval(updateAge,1000);document.addEventListener('visibilitychange',visibility);if(!document.hidden){refresh();loadNews();}}
   window.NFLGameDay={mount,unmount,setLeague,setLeagues};
 })();

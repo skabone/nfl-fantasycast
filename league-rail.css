@@ -102,8 +102,9 @@ body:not(.pane-resizing) .app-frame{transition:grid-template-columns .16s ease}
 .league-include{border-left:0}
 .league-margin{display:block;font-size:1rem;line-height:1.15;font-weight:750;font-variant-numeric:tabular-nums;color:var(--ink)}
 .league-live{display:block;margin-top:3px}
-.league-choice[data-margin-state=ahead] .league-margin{color:#1f6b4b}
-.league-choice[data-margin-state=behind] .league-margin{color:#94441c}
+/* The gap sets the depth: a two-point lead is barely tinted, a thirty-point one is full strength. */
+.league-choice[data-margin-state=ahead] .league-margin{color:#1f6b4b;color:color-mix(in srgb,#1f6b4b calc(var(--margin-strength,1)*100%),#9ec2b2)}
+.league-choice[data-margin-state=behind] .league-margin{color:#a8371a;color:color-mix(in srgb,#a8371a calc(var(--margin-strength,1)*100%),#d8ab9e)}
 .league-choice[data-margin-state=unknown] .league-margin{color:#93a3b6;font-weight:600}
 .league-facts{display:flex;flex-wrap:wrap;gap:0 7px;margin-top:2px;font-size:.63rem}
 .league-facts>span{display:inline;white-space:nowrap}
@@ -154,3 +155,19 @@ body.rail-closed.rail-peek #league-rail .pane-grip{display:none}
 .league-rail[data-compact] #rail-build-update{font-size:0;min-height:34px}
 .league-rail[data-compact] #rail-build-update::before{content:"⬆";font-size:.95rem}
 @media(max-width:900px){.rail-build{grid-column:1/-1;margin-top:6px;padding-top:6px}}
+
+
+/* The date, the slate filters and the update controls all live at the foot of the league panel. */
+.rail-controls{display:flex;flex-direction:column;gap:9px}
+.rail-controls>label{display:flex;flex-direction:column;gap:4px;font-size:.68rem;font-weight:600;color:var(--muted)}
+.rail-controls input[type=date]{font:inherit;font-size:.78rem;padding:6px 8px;border:1px solid var(--line);border-radius:7px;background:#fff}
+.rail-controls>button[data-action=today]{min-height:34px;font-size:.74rem;border-radius:7px}
+.rail-controls .gd-filter{display:flex;flex-wrap:wrap;gap:5px}
+.rail-controls .gd-filter button{flex:1 1 auto;min-height:32px;font-size:.7rem;padding:4px 7px;border-radius:7px;border:1px solid var(--line);background:var(--wash,#f4f7fb)}
+.rail-controls .gd-filter button[aria-pressed=true]{background:var(--ink);color:#fff;border-color:var(--ink)}
+.league-rail[data-compact] .rail-controls>label,.league-rail[data-compact] .rail-controls .gd-filter,
+.league-rail[data-compact] .rail-controls>button[data-action=today]{display:none}
+
+/* Unhidden, the panel travels with the page instead of scrolling away. */
+.league-rail{position:sticky;top:0;max-height:100vh;overflow-y:auto;overscroll-behavior:contain}
+@media(max-width:900px){.league-rail{position:static;max-height:none;overflow:visible}}

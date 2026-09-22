@@ -219,3 +219,34 @@
 .gd-remaining button{gap:4px}
 .gd-remaining button[aria-pressed=true] i{opacity:1}
 .gameday h1.sr-only+*{margin-top:0}
+
+/* ─ Roster and the selected game, side by side ───────────────────────────────────────────────── */
+.gd-work{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start}
+.gd-work>.gd-panel{margin-bottom:0}
+@media(max-width:1180px){.gd-work{grid-template-columns:minmax(0,1fr)}}
+
+/* The right panel now carries the slate, the rooting card and the headlines. */
+.gd-rail>#gd-rooting,.gd-rail>#gd-news{display:block;margin-top:12px}
+.gd-rail .gd-rooting-card,.gd-rail .gd-news-card{margin-bottom:0}
+.gd-rail .gd-news-list li{padding:8px 0}
+.gd-rail .gd-news-thumb{width:52px;height:40px}
+.gd-rail .gd-rooting-outlook{grid-template-columns:minmax(0,1fr)}
+.gd-rail .gd-game-list{max-height:38vh}
+
+/* Headlines carry the colour of the league they touch; more than one league is purple. */
+.gd-news-team{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:baseline;background:var(--news-ink,#7c8aa0)}
+.gd-news-list li.gd-news-mine{border-left:3px solid var(--news-ink,#1f7a63);padding-left:9px}
+.gd-news-list li.gd-news-many{--news-ink:#6935b7}
+.gd-news-list li.gd-news-mine .gd-news-head::before{content:none}
+
+/* In the narrower right panel the summary's trailing link cannot hold its own line. */
+.gd-rail .gd-rooting-card>summary,.gd-rail .gd-news-card>summary{flex-wrap:wrap;gap:4px 10px}
+.gd-rail .gd-rooting-card>summary small,.gd-rail .gd-news-card>summary small{white-space:normal}
+.gd-rail select,.gd-rail input{max-width:100%;min-width:0}
+.gd-rail .gd-scenario-variable{display:grid;grid-template-columns:minmax(0,1fr);gap:6px}
+
+/* Signed margin, coloured by direction and deepening with the gap. */
+.gd-matchup-margin[data-margin]{background:none;border:0;padding:6px 0 0}
+.gd-matchup-margin[data-margin] b{font-size:1.02rem;font-variant-numeric:tabular-nums}
+.gd-matchup-margin[data-margin=ahead] b{color:#1f6b4b;color:color-mix(in srgb,#1f6b4b calc(var(--margin-strength,1)*100%),#9ec2b2)}
+.gd-matchup-margin[data-margin=behind] b{color:#a8371a;color:color-mix(in srgb,#a8371a calc(var(--margin-strength,1)*100%),#d8ab9e)}

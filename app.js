@@ -60,6 +60,14 @@
     if(row.margin===0)return 'Tied';
     return (row.margin>0?'+':'\u2212')+Math.abs(row.margin).toFixed(2);
   }
+  // Ahead is green, behind is red, level is green. The colour deepens with the size of the gap, so a
+  // glance says both direction and how safe it is; SAFE_POINTS is where it stops deepening.
+  const SAFE_POINTS=30;
+  function marginTone(row){
+    if(!row||row.margin===null||row.margin===undefined)return null;
+    const gap=Math.min(Math.abs(row.margin),SAFE_POINTS)/SAFE_POINTS;
+    return {ahead:row.margin>=0,strength:Math.round((0.35+0.65*gap)*100)/100};
+  }
   function leftText(row){
     if(!row)return '';
     const own=Number(row.remainingOwn)||0,opponent=Number(row.remainingOpponent)||0;
@@ -77,18 +85,20 @@
     for(const league of contextLeagues){
       const button=[...document.querySelectorAll('[data-league-open]')].find(b=>b.dataset.leagueOpen===league.id);if(!button)continue;
       const row=scoreChecks.get(league.id);
-      const margin=marginText(row),left=leftText(row);
-      button.querySelector('.league-margin').textContent=margin;
+      const margin=marginText(row),left=leftText(row),tone=marginTone(row);
+      const value=button.querySelector('.league-margin');
+      value.textContent=margin;
+      value.style.setProperty('--margin-strength',tone?String(tone.strength):'0');
       const leftEl=button.querySelector('.league-left');if(leftEl)leftEl.textContent=left;
       const near=isClose(row);
       const badge=button.querySelector('.league-attention');badge.hidden=!near;badge.textContent=near?'Close':'';
       badge.title=near?`Inside ${CLOSE_POINTS} points with players still to play`:'';
       const choice=button.closest('.league-choice');
       choice.classList.toggle('has-close-matchup',near);
-      choice.dataset.marginState=!row||row.margin===null||row.margin===undefined?'unknown':row.margin>0?'ahead':row.margin<0?'behind':'level';
+      choice.dataset.marginState=!tone?'unknown':tone.ahead?'ahead':'behind';
       const description=button.querySelector('.league-chance-description');
       description.textContent=[league.name,
-        row&&row.margin!==null&&row.margin!==undefined?(row.margin>0?`Ahead by ${Math.abs(row.margin).toFixed(2)}`:row.margin<0?`Behind by ${Math.abs(row.margin).toFixed(2)}`:'Level'):'No verified margin yet',
+        tone?(row.margin>0?`Ahead by ${Math.abs(row.margin).toFixed(2)}`:row.margin<0?`Behind by ${Math.abs(row.margin).toFixed(2)}`:'Level'):'No verified margin yet',
         left?left.replace('vs','of yours versus'):'',scoreDetail(row)].filter(Boolean).join('. ');
       if(near)close.push({id:league.id,name:league.name,gap:Math.abs(row.margin)});
     }
@@ -237,7 +247,11 @@
   // choices stay on this device. Widths are clamped so the centre can never be squeezed away, and the
   // whole mechanism stands down on narrow windows where the panels stack instead.
   (function sidePanels(){
-    const KEY='nfl-fantasycast-panes-v1',LIMITS={rail:[58,420],game:[280,560]},VAR={rail:'--rail-w',game:'--game-w'},root=document.documentElement;
+    const KEY='nfl-fantasycast-panes-v1',VAR={rail:'--rail-w',game:'--game-w'},root=document.documentElement;
+    // A share of the window rather than a fixed pixel cap: the leagues may take a quarter of it and
+    // the games panel half, so a wide display can give them real room and a small one cannot be filled.
+    const LIMITS=()=>({rail:[58,Math.max(240,Math.round(window.innerWidth*0.25))],
+                       game:[280,Math.max(320,Math.round(window.innerWidth*0.5))]});
     // Below this the rail is a strip of team icons: name, notes and the combine checkbox step aside and
     // the percentage stays, so dragging it narrow reads like a switcher instead of six wrapped lines.
     const MINI=168;
@@ -247,7 +261,7 @@
     // underneath us, and a cached copy would keep showing panels that are no longer configured.
     const read=()=>{try{saved=JSON.parse(localStorage.getItem(KEY))||{};}catch{saved={};}return saved;};
     read();
-    const clamp=(pane,value)=>Math.max(LIMITS[pane][0],Math.min(LIMITS[pane][1],Math.round(value)));
+    const clamp=(pane,value)=>(()=>{const [min,max]=LIMITS()[pane];return Math.max(min,Math.min(max,Math.round(value)));})();
     function store(){try{localStorage.setItem(KEY,JSON.stringify(saved));}catch{}}
     function apply(){
       read();
@@ -274,7 +288,7 @@
     document.addEventListener('pointerdown',e=>{
       const grip=e.target.closest?.('.pane-grip');if(!grip||!WIDE())return;
       e.preventDefault();
-      const pane=grip.dataset.pane,current=parseFloat(getComputedStyle(root).getPropertyValue(VAR[pane]))||LIMITS[pane][0];
+      const pane=grip.dataset.pane,current=parseFloat(getComputedStyle(root).getPropertyValue(VAR[pane]))||LIMITS()[pane][0];
       drag={pane,x:e.clientX,width:current};document.body.classList.add('pane-resizing');
       try{grip.setPointerCapture(e.pointerId);}catch{}
     });
@@ -285,7 +299,7 @@
     // Keyboard equivalent, and double-click a grip to return it to the default width.
     document.addEventListener('keydown',e=>{
       const grip=e.target.closest?.('.pane-grip');if(!grip||!WIDE())return;
-      const pane=grip.dataset.pane,step=e.shiftKey?40:12,current=parseFloat(getComputedStyle(root).getPropertyValue(VAR[pane]))||LIMITS[pane][0];
+      const pane=grip.dataset.pane,step=e.shiftKey?40:12,current=parseFloat(getComputedStyle(root).getPropertyValue(VAR[pane]))||LIMITS()[pane][0];
       const direction=e.key==='ArrowLeft'?-1:e.key==='ArrowRight'?1:0;if(!direction)return;
       e.preventDefault();saved[pane+'Width']=clamp(pane,current+direction*step*(pane==='rail'?1:-1));store();apply();
     });
@@ -317,7 +331,7 @@
     document.addEventListener('keydown',e=>{if(e.key==='Escape')peek(false);});
     apply();document.addEventListener('nfl:render',apply);
     if(typeof ResizeObserver==='function'){const rail=document.getElementById('league-rail');if(rail)new ResizeObserver(measure).observe(rail);}
-    window.addEventListener('resize',measure);
+    window.addEventListener('resize',()=>{apply();measure();});
   })();
 
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)syncLeagueChances();});
