@@ -21,6 +21,29 @@
   const calculatorLeagues=D.leagues.length?D.leagues:[{id:'example-ppr',name:'Example PPR league',scoring:{reception:1,tightEndReceptionBonus:0,receivingYard:.1,receivingTouchdown:6}}];
   function setLeagues(ids){state.leagueIds=contextLeagues.filter(l=>ids.includes(l.id)).map(l=>l.id);state.league=state.leagueIds.length===1?state.leagueIds[0]:'all';try{localStorage.setItem(FOCUS_KEY,JSON.stringify(state.leagueIds));localStorage.setItem('nfl-fantasycast-league-v1',state.league);}catch{}syncContext();}
   function setLeague(id){if(id==='all')setLeagues(contextLeagues.map(l=>l.id));else if(contextLeagues.some(l=>l.id===id))setLeagues([id]);}
+  // Two different facts share this row. The scores are read live; the win percentage is a dated
+  // capture. Only a check that actually returned scores advances the first line, so a failed refresh,
+  // a retained stale source or an NFL-only update leaves it where it was.
+  const scoreChecks=new Map();
+  function scoreText(row){
+    if(!row)return 'Scores not checked yet';
+    if(!row.checkedAt)return row.status==='failed'?'Last score check failed':row.snapshot?'Saved score snapshot · not a live check':'Scores not checked yet';
+    const seconds=Math.max(0,Math.round((Date.now()-Date.parse(row.checkedAt))/1000)),minutes=Math.floor(seconds/60);
+    const ago=seconds<60?`${seconds} second${seconds===1?'':'s'} ago`:minutes<60?`${minutes} minute${minutes===1?'':'s'} ago`:new Date(row.checkedAt).toLocaleString(undefined,{weekday:'short',hour:'numeric',minute:'2-digit'});
+    const trailing=row.status==='failed'?' · last refresh failed':['stale','unavailable'].includes(row.status)?' · source not refreshing':'';
+    return `${row.snapshot?'Saved scores':'Scores checked'} ${ago}${trailing}`;
+  }
+  function renderScoreChecks(){
+    for(const button of document.querySelectorAll('[data-league-open]')){
+      const line=button.querySelector('.league-scores');
+      if(line)line.textContent=scoreText(scoreChecks.get(button.dataset.leagueOpen));
+    }
+  }
+  document.addEventListener('nfl:league-scores',e=>{
+    for(const row of (e.detail&&Array.isArray(e.detail.leagues))?e.detail.leagues:[])if(row&&typeof row.id==='string')scoreChecks.set(row.id,row);
+    renderScoreChecks();syncLeagueChances();
+  });
+  setInterval(()=>{if(!document.hidden&&document.querySelector('.league-scores'))renderScoreChecks();},1000);
   function syncLeagueChances(){
     let summaries=[];try{const values=window.NFLWinChance?.summaries(contextLeagues,{now:Date.now()});if(Array.isArray(values))summaries=values;}catch{}
     const byId=new Map(summaries.filter(x=>x&&typeof x.leagueId==='string').map(x=>[x.leagueId,x])),ranked=[];
@@ -33,7 +56,7 @@
       const stale=known&&value.stale===true,rank=known&&!stale&&value.percent>0&&value.percent<100&&[1,2].includes(value.attentionRank)?value.attentionRank:null;
       button.querySelector('.league-chance-label').textContent=label;button.querySelector('.league-chance-meta').textContent=meta;
       const badge=button.querySelector('.league-attention');badge.hidden=!rank;badge.textContent=rank?'Closest '+rank:'';badge.title='Close at last check';
-      const description=button.querySelector('.league-chance-description');description.textContent=[label,meta,rank?'Closest matchup '+rank+' at last check':'',detail].filter(Boolean).join('. ');
+      const description=button.querySelector('.league-chance-description');description.textContent=[scoreText(scoreChecks.get(league.id)),label,meta,rank?'Closest matchup '+rank+' at last check':'',detail].filter(Boolean).join('. ');
       button.closest('.league-choice').classList.toggle('has-close-matchup',Boolean(rank));button.closest('.league-choice').dataset.chanceState=known?(stale?'stale':'snapshot'):'unavailable';
       if(rank)ranked.push({id:league.id,rank,name:league.name,button});
     }
@@ -63,8 +86,9 @@
   }
   function setupContext(){
     const rail=$('league-rail');if(!rail)return;
-    $('league-options').innerHTML=contextLeagues.map((l,i)=>{const initials=l.name.split(/\s+/).filter(Boolean).map(w=>w[0]).join('').slice(0,2).toUpperCase();return `<div class="league-choice" style="--league-ink:${window.NFLGameInsights.color(l.id,contextLeagues).ink};--league-tint:${window.NFLGameInsights.color(l.id,contextLeagues).tint}"><button class="league-open" data-league-open="${esc(l.id)}" aria-label="Open ${esc(l.name)} only" aria-describedby="league-chance-${i}"><span class="league-avatar league-color-${i%5}" aria-hidden="true">${esc(initials)}</span><span class="league-name">${esc(l.name)}<span class="league-chance"><strong class="league-chance-label">Chance unavailable</strong><span class="league-attention" hidden></span><small class="league-chance-meta">${esc(l.platform)} · No saved percentage</small></span><span id="league-chance-${i}" class="sr-only league-chance-description"></span></span></button><label class="league-include" title="Include ${esc(l.name)} in the combined view"><input type="checkbox" data-league-include="${esc(l.id)}" aria-label="Include ${esc(l.name)} in combined view" aria-describedby="league-chance-${i}"><span class="sr-only">Include ${esc(l.name)}</span></label></div>`;}).join('');
+    $('league-options').innerHTML=contextLeagues.map((l,i)=>{const initials=l.name.split(/\s+/).filter(Boolean).map(w=>w[0]).join('').slice(0,2).toUpperCase();return `<div class="league-choice" style="--league-ink:${window.NFLGameInsights.color(l.id,contextLeagues).ink};--league-tint:${window.NFLGameInsights.color(l.id,contextLeagues).tint}"><button class="league-open" data-league-open="${esc(l.id)}" aria-label="Open ${esc(l.name)} only" aria-describedby="league-chance-${i}"><span class="league-avatar league-color-${i%5}" aria-hidden="true">${esc(initials)}</span><span class="league-name">${esc(l.name)}<span class="league-chance"><small class="league-scores">Scores not checked yet</small><strong class="league-chance-label">Chance unavailable</strong><span class="league-attention" hidden></span><small class="league-chance-meta">${esc(l.platform)} · No saved percentage</small></span><span id="league-chance-${i}" class="sr-only league-chance-description"></span></span></button><label class="league-include" title="Include ${esc(l.name)} in the combined view"><input type="checkbox" data-league-include="${esc(l.id)}" aria-label="Include ${esc(l.name)} in combined view" aria-describedby="league-chance-${i}"><span class="sr-only">Include ${esc(l.name)}</span></label></div>`;}).join('');
     if(!$('focus-closest')){const focus=document.createElement('button');focus.id='focus-closest';focus.className='focus-closest';focus.type='button';focus.textContent='Focus close matchups';focus.title='Close at last check';focus.hidden=true;$('all-leagues').after(focus);}
+    renderScoreChecks();
     $('all-leagues').hidden=!contextLeagues.length;$('league-help').hidden=!contextLeagues.length;$('league-import').hidden=Boolean(contextLeagues.length);
     rail.addEventListener('click',e=>{const button=e.target.closest('[data-league-open]');if(button)applyFocus([button.dataset.leagueOpen]);else if(e.target.closest('#all-leagues'))applyFocus(contextLeagues.map(l=>l.id));else if(e.target.closest('#focus-closest')){const ids=syncLeagueChances();if(ids.length)applyFocus(ids);else{$('all-leagues')?.focus();toast('No recently captured close matchups are available.');}}});
     rail.addEventListener('change',e=>{const id=e.target.dataset.leagueInclude;if(!id)return;applyFocus(e.target.checked?[...state.leagueIds,id]:state.leagueIds.filter(x=>x!==id));});syncContext();
@@ -124,6 +148,10 @@
     if(nav==='gameday')html=gameDay();else if(nav==='app')html=window.NFLDevice.render();else if(nav==='home')html=home();else if(nav==='learn')html=learn();else if(nav==='news'){html=news();nav='home';}else if(nav==='teams')html=teams(parts[1]);else if(nav==='packets')html=packetBuilder();else if(nav==='card'){html=cardView(parts[1]);nav=cardMap.get(parts[1])?.kind==='story'?'home':'learn';}else if(nav==='packet'){html=packetView(parts[1]);nav='packets';}else{html=empty('That page is not here.','Choose Game Day, a lesson, your league or a saved packet.','#gameday','Open Game Day');}
     document.querySelectorAll('[data-nav]').forEach(a=>a.removeAttribute('aria-current'));document.querySelector(`[data-nav="${nav}"]`)?.setAttribute('aria-current','page');
     $('main').innerHTML=html;$('main').classList.toggle('game-day-main',nav==='gameday');syncContext();bind();bindQuiz();if(nav==='app')window.NFLDevice.bind();
+    const gameRail=$('game-rail');
+    if(gameRail)gameRail.hidden=nav!=='gameday';
+    document.body.classList.toggle('has-game-rail',nav==='gameday');
+    if(nav!=='gameday')window.NFLGameDay?.unmount?.();
     if(nav==='gameday'){
       if(window.NFLGameDay)window.NFLGameDay.mount($('gameday-root'),{leagueId:state.league,leagueIds:[...state.leagueIds],leagues:contextLeagues,hideLeaguePicker:true,onLeagueChange:setLeague,onPlayerLearning:playerLearning});
       else $('gameday-root').innerHTML='<h1>Game Day</h1><p>The Game Day module could not load. Reload this page or run launch.command from the app folder.</p>';
@@ -134,6 +162,52 @@
   document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.packetStep!==undefined){const p=currentPacket(),n=Number(b.dataset.packetStep);if(p&&n>=0&&n<p.cards.length){location.hash='#packet/'+p.id+'?step='+n;window.scrollTo({top:0,behavior:'instant'});}}if(b.dataset.export)exportPacket(b.dataset.export);if(b.dataset.rate){const values={route:['24 ÷ 40 = 60%','Player routes divided by team pass plays. Being on a route creates a chance; it does not guarantee a target.'],target:['8 ÷ 32 = 25%','Player targets divided by the hypothetical team’s 32 targets. Routes are not the denominator for target share.'],catch:['5 ÷ 8 = 62.5%','Catches divided by this player’s targets. Catch rate alone does not explain the difficulty or value of those throws.']};document.querySelectorAll('[data-rate]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));$('opportunity-rate').textContent=values[b.dataset.rate][0];$('opportunity-meaning').textContent=values[b.dataset.rate][1];}if(b.dataset.carries){const runs=b.dataset.carries==='burst'?[-2,0,2,5,20]:[5,5,5,5,5];document.querySelectorAll('[data-carries]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));$('carry-bars').innerHTML=runs.map((n,i)=>`<div class="carry-row"><span>Carry ${i+1}</span><div><i class="${n<0?'loss':''}" style="width:${Math.abs(n)/20*100}%"></i></div><b>${n>0?'+':''}${n} yd</b></div>`).join('');$('carry-pattern').textContent=b.dataset.carries==='burst'?'One 20-yard run accounts for 80% of the yards. Two carries gain nothing or lose ground.':'Every carry gains five yards. The average matches the other pattern, but the drive may feel very different.';}if(b.dataset.eligible){const superflex=b.dataset.eligible==='Superflex';document.querySelectorAll('[data-eligible]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));$('eligible-result').textContent=superflex?'QB · RB · WR · TE':'RB · WR · TE';$('eligible-meaning').textContent=superflex?'Superflex permits a quarterback; it does not require one. Check the exact league slot and available players.':'A standard FLEX does not add a quarterback slot.';}if(b.dataset.down){const third=b.dataset.down==='third';document.querySelectorAll('[data-down]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));$('down-result').textContent=third?'Fourth-and-4: the drive is still short.':'Second-and-5: half the distance remains.';$('down-meaning').textContent=third?'The same five yards did not convert. Fourth-down decisions now depend on field position, score, time and the teams.':'A useful early-down gain creates options. It still has not earned a first down.';}});
   window.addEventListener('hashchange',()=>route());
   document.addEventListener('nfl:win-chance-update',syncLeagueChances);
+
+  // Two side panels, in Gena's shape: drag the grip to resize, hide either one independently, and both
+  // choices stay on this device. Widths are clamped so the centre can never be squeezed away, and the
+  // whole mechanism stands down on narrow windows where the panels stack instead.
+  (function sidePanels(){
+    const KEY='nfl-fantasycast-panes-v1',LIMITS={rail:[180,420],game:[280,560]},VAR={rail:'--rail-w',game:'--game-w'},root=document.documentElement;
+    const WIDE=()=>window.matchMedia('(min-width: 901px)').matches;
+    let saved={};try{saved=JSON.parse(localStorage.getItem(KEY))||{};}catch{}
+    const clamp=(pane,value)=>Math.max(LIMITS[pane][0],Math.min(LIMITS[pane][1],Math.round(value)));
+    function store(){try{localStorage.setItem(KEY,JSON.stringify(saved));}catch{}}
+    function apply(){
+      for(const pane of ['rail','game']){
+        const width=Number(saved[pane+'Width']);
+        if(Number.isFinite(width))root.style.setProperty(VAR[pane],clamp(pane,width)+'px');else root.style.removeProperty(VAR[pane]);
+        const closed=saved[pane+'Open']===false;
+        document.body.classList.toggle(pane+'-closed',closed);
+        for(const button of document.querySelectorAll(`[data-pane-toggle="${pane}"]`))button.setAttribute('aria-expanded',String(!closed));
+      }
+    }
+    function toggle(pane){saved[pane+'Open']=saved[pane+'Open']===false;store();apply();
+      const target=document.querySelector(saved[pane+'Open']===false?`.pane-reopen[data-pane-toggle="${pane}"]`:`#${pane==='rail'?'league-rail':'game-rail'} .pane-hide`);
+      if(target&&target.offsetParent!==null)target.focus({preventScroll:true});}
+    document.addEventListener('click',e=>{const button=e.target.closest('[data-pane-toggle]');if(button)toggle(button.dataset.paneToggle);});
+    let drag=null;
+    document.addEventListener('pointerdown',e=>{
+      const grip=e.target.closest?.('.pane-grip');if(!grip||!WIDE())return;
+      e.preventDefault();
+      const pane=grip.dataset.pane,current=parseFloat(getComputedStyle(root).getPropertyValue(VAR[pane]))||LIMITS[pane][0];
+      drag={pane,x:e.clientX,width:current};document.body.classList.add('pane-resizing');
+      try{grip.setPointerCapture(e.pointerId);}catch{}
+    });
+    document.addEventListener('pointermove',e=>{if(!drag)return;
+      const delta=e.clientX-drag.x;root.style.setProperty(VAR[drag.pane],clamp(drag.pane,drag.pane==='rail'?drag.width+delta:drag.width-delta)+'px');});
+    function release(){if(!drag)return;saved[drag.pane+'Width']=parseFloat(getComputedStyle(root).getPropertyValue(VAR[drag.pane]))||null;store();drag=null;document.body.classList.remove('pane-resizing');}
+    document.addEventListener('pointerup',release);document.addEventListener('pointercancel',release);
+    // Keyboard equivalent, and double-click a grip to return it to the default width.
+    document.addEventListener('keydown',e=>{
+      const grip=e.target.closest?.('.pane-grip');if(!grip||!WIDE())return;
+      const pane=grip.dataset.pane,step=e.shiftKey?40:12,current=parseFloat(getComputedStyle(root).getPropertyValue(VAR[pane]))||LIMITS[pane][0];
+      const direction=e.key==='ArrowLeft'?-1:e.key==='ArrowRight'?1:0;if(!direction)return;
+      e.preventDefault();saved[pane+'Width']=clamp(pane,current+direction*step*(pane==='rail'?1:-1));store();apply();
+    });
+    document.addEventListener('dblclick',e=>{const grip=e.target.closest?.('.pane-grip');if(!grip)return;delete saved[grip.dataset.pane+'Width'];store();apply();});
+    apply();document.addEventListener('nfl:render',apply);
+  })();
+
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)syncLeagueChances();});
   window.NFL_APP={data:D,contextLeagues,setLeague,setLeagues,getLeagues:()=>[...state.leagueIds],getLeague:()=>state.league,cards:cardMap,activeCard,packets:state.packets,route,selectPacketCards,showCard(id,cause='narration'){history.replaceState(null,'','#card/'+id);route(cause);},showPacket(id,index,cause='narration'){history.replaceState(null,'','#packet/'+id+'?step='+index);route(cause);},toast};
   setupContext();

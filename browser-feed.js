@@ -14,6 +14,9 @@
   function providerURL(url){
     const u=new URL(url);if(u.protocol!=='https:'||u.username||u.password||u.port||u.hash)throw Error('Unsupported provider URL');
     if(u.origin==='https://site.web.api.espn.com'&&u.pathname===new URL(ESPN+'scoreboard').pathname&&[...u.searchParams.keys()].join()==='dates'&&/^\d{8}$/.test(u.searchParams.get('dates')))return;
+    // The whole fantasy week, so Thursday and Sunday starters keep their verified game while
+    // Monday's slate is on screen. Week and season type are bounded to real values.
+    if(u.origin==='https://site.web.api.espn.com'&&u.pathname===new URL(ESPN+'scoreboard').pathname&&[...u.searchParams.keys()].sort().join()==='dates,seasontype,week'&&/^[1-9]\d?$/.test(u.searchParams.get('week'))&&['1','2','3'].includes(u.searchParams.get('seasontype'))&&/^\d{4}$/.test(u.searchParams.get('dates')))return;
     if(u.origin==='https://site.web.api.espn.com'&&u.pathname===new URL(ESPN+'summary').pathname&&[...u.searchParams.keys()].join()==='event'&&/^\d{6,12}$/.test(u.searchParams.get('event')))return;
     if(u.origin==='https://api.sleeper.app'&&!u.search){
       if(['/v1/state/nfl','/v1/players/nfl'].includes(u.pathname))return;
@@ -85,15 +88,27 @@
     if(leagueId&&leagueId!=='none'&&!configured.some(l=>String(l.id)===String(leagueId))&&leagueId!==espnId)throw Error('Import a profile containing this league first.');
     const url=ESPN+'scoreboard?dates='+date.replace(/-/g,''),[[b,bs],[state,ss]]=await Promise.all([cached('board:'+date,'ESPN NFL scoreboard',url,async()=>board(await fetchJSON(url)),10000,refresh),cached('state:nfl','Sleeper NFL week',SLEEPER+'state/nfl',()=>fetchJSON(SLEEPER+'state/nfl'),3600000)]);
     const week=num(state.week),season=state.season||null,sources=[bs,ss],notices=["Fantasy points are the platform's league-scored totals. Game feeds and fantasy points can update at different times."],games=b.games||[];let fantasy={},fs;
-    if(leagueId==='none')return {date,generatedAt:stamp(),week,gameWeek:b.week||null,season,league:null,games,matchup:{available:false,week:null,matchupId:null,own:null,opponent:null,reason:'No fantasy teams selected.'},sources,notices:['Choose teams to connect fantasy matchups. The NFL scoreboard remains available.']};
+    if(leagueId==='none')return {date,generatedAt:stamp(),week,gameWeek:b.week||null,season,league:null,games,weekGames:games,matchup:{available:false,week:null,matchupId:null,own:null,opponent:null,reason:'No fantasy teams selected.'},sources,notices:['Choose teams to connect fantasy matchups. The NFL scoreboard remains available.']};
     if(leagueId&&leagueId===espnId){try{await players();}catch{}fantasy=snapshot(es);fs=source('ESPN fantasy capture',es.sourceUrls?.matchup,'snapshot',es.observedAt);notices.push('ESPN fantasy scores are a dated imported capture; they do not auto-refresh. NFL games refresh independently.');}
     else if(leagueId&&week&&p?.sleeperUserId){const url=SLEEPER+'league/'+leagueId+'/matchups/'+week;[fantasy,fs]=await cached('matchup:'+p.sleeperUserId+':'+leagueId+':'+season+':'+week,'Sleeper weekly matchup',url,()=>liveMatchup(String(leagueId),week,p),10000,refresh);}
     else{fs=source('Fantasy profile',null,'unavailable',null,p?'Current fantasy week is unavailable.':'Import your private profile to connect your teams.');notices.push(p?'Current fantasy week is unavailable.':'Import your private profile to connect your teams. The NFL scoreboard works without a profile.');}
     sources.push(fs);if(!fantasy.matchup){fantasy=savedOwn(p,leagueId);if(fantasy.matchup.own){sources.push(source('Saved own roster',null,'snapshot',p.guide.rosterCheckedAt||p.guide.rosterAsOf));notices.push('Live fantasy scoring is unavailable. The saved roster is dated; points and opponent are withheld.');}}
-    for(const side of ['own','opponent'])for(const player of [...(fantasy.matchup[side]?.starters||[]),...(fantasy.matchup[side]?.bench||[])]){const g=games.find(g=>[g.home.abbr,g.away.abbr].includes(player.team)&&g.week===fantasy.matchup.week&&String(g.season)===String(fantasy.league?.season||season));if(g){player.gameId=g.id;player.status=g.state;}}
+    // The fantasy matchup owns a whole NFL week; the date picker owns one day of it. Link against
+    // the week so an earlier starter keeps its verified game and final statistics while a later
+    // slate is on screen. Week and season still have to match before anything is linked.
+    const targetWeek=fantasy.matchup?.week,targetSeason=String(fantasy.league?.season||season||'');let weekGames=games;
+    if(/^[1-9]\d?$/.test(String(targetWeek||''))&&/^\d{4}$/.test(targetSeason)){
+      const type={pre:'1',regular:'2',post:'3'}[String(state.season_type||'regular')]||'2';
+      const wurl=ESPN+'scoreboard?week='+Number(targetWeek)+'&seasontype='+type+'&dates='+targetSeason;
+      const [wb,ws2]=await cached('weekboard:'+targetSeason+':'+type+':'+targetWeek,'ESPN NFL week',wurl,async()=>board(await fetchJSON(wurl)),10000,refresh);
+      sources.push(ws2);const known=new Set(games.map(g=>String(g.id)));
+      weekGames=games.concat((wb.games||[]).filter(g=>!known.has(String(g.id))));
+      if(['stale','unavailable'].includes(ws2.status))notices.push('The full-week NFL feed did not refresh. Players outside the selected date may show as unlinked until it succeeds.');
+    }
+    for(const side of ['own','opponent'])for(const player of [...(fantasy.matchup[side]?.starters||[]),...(fantasy.matchup[side]?.bench||[])]){const g=weekGames.find(g=>[g.home.abbr,g.away.abbr].includes(player.team)&&g.week===fantasy.matchup.week&&String(g.season)===String(fantasy.league?.season||season));if(g){player.gameId=g.id;player.status=g.state;}}
     if(sources.some(s=>['stale','unavailable'].includes(s.status)))notices.push('Check the source times: at least one feed is unavailable or retained from an earlier capture.');
-    if(fantasy.matchup.available&&b.week&&(b.week!==fantasy.matchup.week||String(b.season)!==String(fantasy.league?.season||season)))notices.push(`The selected NFL date is week ${b.week}; your fantasy matchup is week ${fantasy.matchup.week}. Games from a different week or season are not linked to this lineup.`);
-    return {date,generatedAt:stamp(),week,gameWeek:b.week||null,season,league:fantasy.league,games,matchup:fantasy.matchup,sources,notices};
+    if(fantasy.matchup.available&&b.week&&(b.week!==fantasy.matchup.week||String(b.season)!==String(fantasy.league?.season||season)))notices.push(`The selected NFL date is week ${b.week}; your fantasy matchup is week ${fantasy.matchup.week}. Your players stay linked to their own week; games from a different week or season are never linked to this lineup.`);
+    return {date,generatedAt:stamp(),week,gameWeek:b.week||null,season,league:fantasy.league,games,weekGames,matchup:fantasy.matchup,sources,notices};
   }
   async function getGame(id,refresh=false){id=String(id);if(!/^\d{6,12}$/.test(id))throw Error('Choose a valid NFL game.');const url=ESPN+'summary?event='+id,[d,s]=await cached('game:'+id,'ESPN NFL game details',url,async()=>detail(await fetchJSON(url),id),10000,refresh);if(!d.id)Object.assign(d,{id,game:null,leaders:[],players:[],plays:[],highlights:[],fieldPosition:null,lastPlay:null,notices:['Game details are unavailable. Try Refresh again.']});if(s.status==='stale')d.notices.push('Game details retain the last successful capture; the feed did not refresh.');return {...d,sources:[s],generatedAt:stamp()};}
   window.NFLBrowserFeed={getDashboard,getGame};

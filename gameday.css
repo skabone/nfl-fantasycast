@@ -35,3 +35,55 @@
 @container game-day (max-width:1050px){.gd-compact-score{flex-basis:310px}.gameday .gd-aggregate-player{grid-template-columns:32px minmax(0,1fr) auto!important}.gd-avatar{width:32px;height:39px}.gd-refresh-bar{flex-wrap:wrap}.gd-update-actions{margin-left:0}}
 @container game-day (max-width:550px){.gd-compact-score{flex-basis:94%}.gd-overview-heading{flex-direction:row;flex-wrap:wrap;gap:6px}.gd-overview-heading::after{flex-basis:100%}.gd-overview-heading h2{font-size:1rem}.gd-mini-scores strong{font-size:1.7rem}.gd-rooting-card>summary{padding:12px;align-items:start;flex-direction:column;gap:6px}.gd-rooting-body{padding:0 12px 12px}.gd-rooting-card>summary small{font-size:.67rem}.gd-scenario-variable{grid-template-columns:1fr 70px;gap:8px}.gd-scenario-variable label:first-child{grid-column:1/-1}.gd-refresh-bar .gd-health{flex-basis:100%;font-size:.68rem}.gd-update-actions{justify-content:space-between;width:100%;gap:4px}.gd-update-actions #gd-age{font-size:.63rem}.gd-update-actions button{padding:7px;font-size:.67rem;min-height:44px}.gameday .gd-player,.gameday .gd-aggregate-player{grid-template-columns:32px minmax(0,1fr)!important;padding:10px 7px;gap:6px}.gd-player>.gd-player-points,.gd-player>.gd-exposure-count{grid-column:1/-1;text-align:left;display:flex;gap:5px;align-items:baseline}.gd-player>.gd-exposure-count{font-size:.8rem}.gd-player>.gd-exposure-count small{display:inline}.gd-player-name{font-size:.77rem}.gd-possession-label{font-size:.62rem}.gd-player-line{font-size:.67rem}.gd-stat-stamp{font-size:.59rem}.gd-remaining button{min-height:44px!important}.gd-state-legend{padding:7px;gap:6px 9px}.gd-scenario-results>div{align-items:start;flex-direction:column;gap:4px}.gd-change-feed summary>span{display:block;margin:4px 0 0}.gd-card-source summary{min-height:36px}.gd-player-filter{flex-wrap:wrap}}
 .gd-heading h1{font-size:2.7rem}.gd-overview-grid{display:flex;overflow-x:auto;scroll-snap-type:x proximity;padding-bottom:10px}.gd-compact-score{flex:1 0 280px;max-width:600px;scroll-snap-align:start}.gd-overview-heading::after{content:none}@container game-day (max-width:550px){.gd-compact-score{flex:0 0 94%}.gd-heading h1{font-size:2.3rem}.gd-overview-heading::after{content:'Swipe scorecards · tap a count to focus players';font-size:.63rem;color:var(--gd-muted)}}
+
+/* ─ Two-panel layout ────────────────────────────────────────────────────────────
+   The NFL slate and the selected game moved into the right side panel, so the centre
+   is two equal cards that widen whenever either panel is hidden. Everything below
+   trims height rather than adding it: the width is the point. */
+.gd-rail{--gd-navy:#142d49;--gd-blue:#2857b8;--gd-muted:#52667c;--gd-line:#d5dfe9;--gd-own:#dcecfb;--gd-opp:#f4e6d4;font-size:14px;line-height:1.45;min-width:0}
+.gd-rail *{min-width:0}
+.gd-rail h2{font-size:1.02rem;margin:0}
+.gd-rail h3{font-size:.95rem;line-height:1.4;margin:0 0 6px}
+.gd-rail p{margin:0 0 8px}
+.gd-rail p:last-child{margin-bottom:0}
+.gd-rail button{font-size:.82rem;line-height:1.3}
+.gd-rail button[aria-pressed=true]{background:var(--gd-navy);color:white;border-color:var(--gd-navy)}
+
+.gd-centre{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start;margin-bottom:18px}
+.gd-centre>.gd-panel{margin-bottom:0}
+.gameday h1{font-size:clamp(1.9rem,3vw,2.6rem);margin:0 0 4px}
+.gameday .gd-heading{margin-bottom:14px}
+.gameday .gd-heading p{margin:0}
+.gd-refresh-bar{margin:0 0 14px}
+.gd-panel-meta{font-size:.72rem;font-weight:500;color:var(--gd-muted);text-align:right}
+.gd-centre .gd-panel-head{min-height:0;padding:11px 14px}
+.gd-centre .gd-panel-foot{padding:9px 14px}
+.gd-score-panel>#gd-score,.gd-score-panel>#gd-rooting,.gd-score-panel>#gd-changes{padding:0 14px}
+.gd-score-panel>#gd-score{padding-top:12px}
+.gd-score-panel>#gd-changes:not(:empty){padding-bottom:14px}
+.gd-score-panel .gd-overview-grid{display:grid;overflow:visible;grid-template-columns:repeat(auto-fit,minmax(min(100%,195px),1fr));gap:10px;margin-bottom:12px;padding-bottom:0}
+@media(max-width:620px){.gd-score-panel .gd-overview-grid{grid-template-columns:minmax(0,1fr)}}
+.gd-score-panel .gd-rooting-card{margin-bottom:14px}
+.gd-rooting-scope{display:block;margin-top:3px;font-size:.7rem;font-weight:500;color:var(--gd-muted)}
+.gd-outlook-teams{font-size:.72rem;color:var(--gd-muted);margin:0 0 6px}
+.gd-outlook-teams span{opacity:.7;padding:0 2px}
+
+/* The slate reads as a list in a narrow panel, not a horizontal filmstrip. */
+.gd-rail .gd-toolbar{flex-direction:column;align-items:stretch;gap:9px;padding:0 0 12px;background:transparent;border-top:0}
+.gd-rail .gd-toolbar label{display:flex;flex-direction:column;gap:4px;font-size:.74rem}
+.gd-rail .gd-section-head{display:block;margin-bottom:9px}
+.gd-rail .gd-section-head h2{font-size:.95rem}
+.gd-rail .gd-filter{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.gd-rail .gd-game-list{display:grid;grid-template-columns:1fr;gap:7px;overflow-x:visible;overflow-y:auto;max-height:44vh;padding:2px 2px 6px;scroll-snap-type:none}
+.gd-rail .gd-game-card{width:auto;flex:none;scroll-snap-align:none}
+.gd-rail .gd-slate{margin-bottom:14px}
+.gd-rail .gd-panel{margin-bottom:0}
+.gd-rail .gd-panel-head{min-height:0;padding:11px 13px}
+
+@media(max-width:1300px){.gd-centre{grid-template-columns:minmax(0,1fr);gap:14px}}
+@media(max-width:900px){
+  .gd-centre{grid-template-columns:minmax(0,1fr)}
+  .gd-rail .gd-game-list{display:flex;overflow-x:auto;overflow-y:visible;max-height:none;scroll-snap-type:x proximity}
+  .gd-rail .gd-game-card{flex:none;scroll-snap-align:start}
+  .gd-rail .gd-toolbar{flex-direction:row;flex-wrap:wrap;align-items:end}
+}

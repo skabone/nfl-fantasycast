@@ -9,7 +9,7 @@
   function freshness(record,now=Date.now()){const x=source(record),time=Date.parse(x?.fetchedAt);return record?.error?'stale':x?.status==='snapshot'?'snapshot':!x||!Number.isFinite(time)?'unknown':['stale','unavailable'].includes(x.status)||now-time>120000?'stale':'current';}
   function linked(p,games){return p?.gameId?list(games).find(g=>String(g.id)===String(p.gameId)):null;}
   function activity(p,games,fresh=true){
-    const g=linked(p,games);if(!g)return {key:'unknown',label:'Game not linked on this date',game:null};
+    const g=linked(p,games);if(!g)return {key:'unknown',label:'No verified game this fantasy week',game:null};
     if(g.state==='post')return {key:'final',label:'Final',game:g};
     if(g.state==='pre')return {key:'upcoming',label:g.status||'Upcoming',game:g};
     if(g.state!=='in')return {key:'unknown',label:g.status||'Status unavailable',game:g};
