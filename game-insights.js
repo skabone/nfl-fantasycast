@@ -86,5 +86,72 @@
       }}
     }return [...grouped.values()];
   }
-  window.NFLGameInsights={color,freshness,source,activity,counts,boxPlayer,compactStats,outlook,events,eventKeys,eventPoints,coefficient,scenario,path,changes};
+  // Cross-league player search. Two layers, always labelled: the saved roster snapshot covers every
+  // configured league even when it is not selected, and the live matchup covers only the leagues
+  // currently loaded — but it is the only layer that knows about opponents.
+  const SUFFIX=/\b(jr|sr|ii|iii|iv|v)\.?$/i;
+  function normalizeName(value){
+    return String(value||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+      .replace(/[\u2019']/g,'').replace(/[^a-z0-9 ]+/g,' ').replace(/\s+/g,' ').trim().replace(SUFFIX,'').trim();
+  }
+  // Providers disagree on IDs, so the live feed and the saved snapshot would split one person in two.
+  // A person is their name and position here — this searches one owner's own leagues, not all of the NFL.
+  function searchKey(player){return normalizeName(player?.name)+'|'+String(player?.position||'').toUpperCase();}
+  function search(query,{exposure=[],records=[],games=[],savedAs=null,limit=12}={}){
+    const q=normalizeName(query),raw=String(query||'').trim().toUpperCase();
+    if(q.length<2)return {query:String(query||''),hits:[],tooShort:Boolean(String(query||'').trim())};
+    const hits=new Map();
+    const entry=(player,row)=>{
+      const key=searchKey(player);
+      if(!hits.has(key))hits.set(key,{key,name:player.name,position:player.position||null,
+        nflTeam:null,nflTeamName:null,injuryStatus:null,entries:[],score:0});
+      const hit=hits.get(key);
+      // Whichever layer knows a detail fills it; neither overwrites the other with a blank.
+      hit.nflTeam=hit.nflTeam||player.nflTeam||player.team||null;
+      hit.nflTeamName=hit.nflTeamName||player.nflTeamName||null;
+      hit.injuryStatus=hit.injuryStatus||player.providerInjuryStatus||player.injuryStatus||null;
+      if(!hit.entries.some(e=>e.leagueId===row.leagueId&&e.side===row.side&&e.category===row.category))hit.entries.push(row);
+      return hit;
+    };
+    const matches=player=>{
+      const name=normalizeName(player?.name);if(!name)return 0;
+      if(name===q)return 100;
+      if(name.startsWith(q)||name.split(' ').some(part=>part.startsWith(q)))return 60;
+      if(name.includes(q))return 30;
+      if(raw.length>=2&&String(player?.nflTeam||player?.team||'').toUpperCase()===raw)return 20;
+      if(normalizeName(player?.nflTeamName).includes(q))return 15;
+      return 0;
+    };
+    // Live first, so a loaded league's current slot and points win over the saved snapshot.
+    for(const record of list(records)){
+      const league={...record.league,...record.data?.league};
+      for(const side of ['own','opponent'])for(const category of ['starters','bench','injuredReserve','taxi']){
+        for(const player of list(record.data?.matchup?.[side]?.[category])){
+          const score=matches(player);if(!score)continue;
+          const game=player.gameId?list(games).find(g=>String(g.id)===String(player.gameId)):null;
+          const hit=entry(player,{leagueId:String(league.id||''),leagueName:league.name||'League',side,category,
+            slot:player.slot||player.lineupSlot||null,points:finite(player.points)?player.points:null,
+            source:'live',gameId:player.gameId||null,state:game?.state||null,status:game?.status||null});
+          hit.score=Math.max(hit.score,score);
+        }
+      }
+    }
+    const loaded=new Set(list(records).map(r=>String(r.league?.id||r.data?.league?.id||'')));
+    for(const player of list(exposure)){
+      const score=matches(player);if(!score)continue;
+      for(const row of list(player.leagues)){
+        // A loaded league already answered live; never show a dated slot beside a current one.
+        if(loaded.has(String(row.leagueId)))continue;
+        const hit=entry(player,{leagueId:String(row.leagueId||''),leagueName:row.leagueName||'League',side:'own',
+          category:row.category||'starters',slot:row.slot||null,points:null,source:'saved',savedAs,gameId:null,state:null,status:null});
+        hit.score=Math.max(hit.score,score);
+      }
+    }
+    const order={starters:0,bench:1,injuredReserve:2,taxi:3};
+    const rows=[...hits.values()].map(hit=>({...hit,
+      entries:hit.entries.sort((a,b)=>(a.source==='live'?0:1)-(b.source==='live'?0:1)||(a.side==='own'?0:1)-(b.side==='own'?0:1)||(order[a.category]??9)-(order[b.category]??9)||String(a.leagueName).localeCompare(String(b.leagueName)))}));
+    rows.sort((a,b)=>b.score-a.score||b.entries.length-a.entries.length||String(a.name).localeCompare(String(b.name)));
+    return {query:String(query||''),hits:rows.slice(0,limit),total:rows.length,tooShort:false};
+  }
+  window.NFLGameInsights={color,freshness,source,activity,counts,boxPlayer,compactStats,outlook,events,eventKeys,eventPoints,coefficient,scenario,path,changes,search,normalizeName};
 })();
