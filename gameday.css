@@ -49,7 +49,12 @@
 .gd-rail button{font-size:.82rem;line-height:1.3}
 .gd-rail button[aria-pressed=true]{background:var(--gd-navy);color:white;border-color:var(--gd-navy)}
 
-.gd-centre{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start;margin-bottom:18px}
+/* One column: the scorecards sit directly above the roster and stay pinned while it scrolls, so the
+   running totals are always on screen. The roster keeps the full centre width. */
+.gd-centre{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;align-items:start;margin-bottom:18px}
+.gd-score-panel{position:sticky;top:0;z-index:6;background:#fff;box-shadow:0 6px 14px -12px rgba(16,40,70,.5)}
+.gd-score-panel>#gd-score{max-height:min(42vh,420px);overflow-y:auto;overscroll-behavior:contain}
+@supports not (position:sticky){.gd-score-panel{position:static}}
 .gd-centre>.gd-panel{margin-bottom:0}
 .gameday h1{font-size:clamp(1.9rem,3vw,2.6rem);margin:0 0 4px}
 .gameday .gd-heading{margin-bottom:14px}
@@ -58,13 +63,19 @@
 .gd-panel-meta{font-size:.72rem;font-weight:500;color:var(--gd-muted);text-align:right}
 .gd-centre .gd-panel-head{min-height:0;padding:11px 14px}
 .gd-centre .gd-panel-foot{padding:9px 14px}
-.gd-score-panel>#gd-score,.gd-score-panel>#gd-rooting,.gd-score-panel>#gd-changes{padding:0 14px}
+.gd-score-panel>#gd-score{padding:0 14px}
+.gd-centre>#gd-rooting,.gd-centre>#gd-changes{padding:0}
 .gd-score-panel>#gd-score{padding-top:12px}
-.gd-score-panel>#gd-changes:not(:empty){padding-bottom:14px}
+
 .gd-score-panel .gd-overview-grid{display:grid;overflow:visible;grid-template-columns:repeat(auto-fit,minmax(min(100%,195px),1fr));gap:10px;margin-bottom:12px;padding-bottom:0}
 @media(max-width:620px){.gd-score-panel .gd-overview-grid{grid-template-columns:minmax(0,1fr)}}
-.gd-score-panel .gd-rooting-card{margin-bottom:14px}
-.gd-rooting-scope{display:block;margin-top:3px;font-size:.7rem;font-weight:500;color:var(--gd-muted)}
+.gd-centre>#gd-rooting .gd-rooting-card{margin-bottom:0}
+/* The summary's text column has to be allowed to shrink, or a long league list pushes the page wide.
+   The old two-column centre hid this behind the panel's overflow:hidden. */
+.gd-rooting-card>summary>span{min-width:0;flex:1 1 auto}
+/* The summary's trailing 'Open the paths' link is nowrap; the scope line must not inherit that. */
+.gd-rooting-card>summary small.gd-rooting-scope{white-space:normal}
+.gd-rooting-scope{display:block;margin-top:3px;max-width:100%;font-size:.7rem;font-weight:500;line-height:1.4;color:var(--gd-muted);overflow-wrap:anywhere}
 .gd-outlook-teams{font-size:.72rem;color:var(--gd-muted);margin:0 0 6px}
 .gd-outlook-teams span{opacity:.7;padding:0 2px}
 
@@ -80,9 +91,9 @@
 .gd-rail .gd-panel{margin-bottom:0}
 .gd-rail .gd-panel-head{min-height:0;padding:11px 13px}
 
-@media(max-width:1300px){.gd-centre{grid-template-columns:minmax(0,1fr);gap:14px}}
+
 @media(max-width:900px){
-  .gd-centre{grid-template-columns:minmax(0,1fr)}
+  .gd-score-panel>#gd-score{max-height:min(34vh,300px)}
   .gd-rail .gd-game-list{display:flex;overflow-x:auto;overflow-y:visible;max-height:none;scroll-snap-type:x proximity}
   .gd-rail .gd-game-card{flex:none;scroll-snap-align:start}
   .gd-rail .gd-toolbar{flex-direction:row;flex-wrap:wrap;align-items:end}

@@ -1,7 +1,7 @@
 {
   "schema": "nfl-fantasycast-public-build",
   "version": 1,
-  "builtAt": "2026-09-22T03:16:57+00:00",
+  "builtAt": "2026-09-22T03:59:37+00:00",
   "personalDataIncluded": false,
   "requiresPrivateProfileImport": true,
   "generalCards": 14,
@@ -29,12 +29,12 @@
     "browser-feed.js": "3de9e1da6b01c75c8dc35475d090e246cf67c3d0075e4a8a3d3fd1d362b85328",
     "data.js": "6d0d5d70ee1b0fe05f4ca565062f4dafa7ba82dec3ba2dceb21e1db82872f8cc",
     "data.json": "e3f514690e6b47d7433e1f5f762a098e647f8abfb89020c9ce87cc302a72d07e",
-    "delivery.js": "42509b82e169bd16ba66931a139acdbeebf2a221e0b2089bece026697a5fcaa1",
+    "delivery.js": "6660d3d72bf7d73ce46bdfd3c55072e41677758300d543eeed1a5914a0dcba5b",
     "device.css": "5110704cdd22d4c404c06095207f342b2f57f6e6d338ca28a78f67fe538e152b",
     "device.js": "fc99b0aa5dd33abe74769034e1d3d7f155d8402bcaed76e85ef3f34d2bf0aafc",
     "game-insights.js": "3e2277ba6fa983b8f193711a5b3266678a86ed2ef347401634f97aeeb96ed740",
-    "gameday.css": "aec04cb89318133378d0bd578299f2339c74a611548d177e671cfc81eaca3a0a",
-    "gameday.js": "ffab66e36f66935ef89a781e4e7d96174e408b2c000fe2d12cef8866ed2afa9c",
+    "gameday.css": "f730ab60cf3377da5c361728f1660b214ac27eea8d67772d851e9a7aea83959a",
+    "gameday.js": "33cdbe007661319d33e7ca32eebdc5d1774f64d65591ef67a99b2fb73f22aafd",
     "index.html": "398e9b80aa71d7e30b2a3985fc16b90b37e4c4732e2fa39f8e946db2f0086492",
     "league-rail.css": "7c21258d5cc6e89954cc1f329cc8609c6d601fea754abe00e0ef233257bd3417",
     "manifest.webmanifest": "c54f0f8695599b9fd869f4118702e77bf27fb6fe24a599bf25d3ba765be9a344",
@@ -42,7 +42,7 @@
     "present.js": "3be9590734fb4abf1ab30c28a17f3d328112b5e807646bbf9c025008d4692739",
     "profile.js": "8a8f087642af99c336a176ffa99a487490c058b21e57569647c55fc83c470108",
     "style.css": "137da91bc36848ebb295d146ef65adf5fd4fce522f0e20e4d15e222751dc9c7d",
-    "sw.js": "0a2f96f05b6300b872a1e9b24a16bcfbafdfe320f5514597dfd9f122d269f96d",
+    "sw.js": "60924f2c2ded04282a33c4884ff5071f4783c4551de413b58678115ed1c16b28",
     "win-chance.js": "c6768b751721845ff8d5b84e698421e46685159cdb2d3f4a72d905abc383dd29"
   }
 }
