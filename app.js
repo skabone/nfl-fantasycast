@@ -226,6 +226,14 @@
       e.preventDefault();saved[pane+'Width']=clamp(pane,current+direction*step*(pane==='rail'?1:-1));store();apply();
     });
     document.addEventListener('dblclick',e=>{const grip=e.target.closest?.('.pane-grip');if(!grip)return;delete saved[grip.dataset.pane+'Width'];store();apply();});
+    // Keyboard equivalents for the two panels, ignored while typing so they never eat a note.
+    document.addEventListener('keydown',e=>{
+      if(e.metaKey||e.ctrlKey||e.altKey||!WIDE())return;
+      const node=e.target;
+      if(node&&(node.isContentEditable||['INPUT','TEXTAREA','SELECT'].includes(node.tagName)))return;
+      if(e.key==='[')      {e.preventDefault();toggle('rail');}
+      else if(e.key===']') {e.preventDefault();toggle('game');}
+    });
     apply();document.addEventListener('nfl:render',apply);
     if(typeof ResizeObserver==='function'){const rail=document.getElementById('league-rail');if(rail)new ResizeObserver(measure).observe(rail);}
     window.addEventListener('resize',measure);

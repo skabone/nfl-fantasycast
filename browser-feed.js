@@ -18,6 +18,8 @@
     // Monday's slate is on screen. Week and season type are bounded to real values.
     if(u.origin==='https://site.web.api.espn.com'&&u.pathname===new URL(ESPN+'scoreboard').pathname&&[...u.searchParams.keys()].sort().join()==='dates,seasontype,week'&&/^[1-9]\d?$/.test(u.searchParams.get('week'))&&['1','2','3'].includes(u.searchParams.get('seasontype'))&&/^\d{4}$/.test(u.searchParams.get('dates')))return;
     if(u.origin==='https://site.web.api.espn.com'&&u.pathname===new URL(ESPN+'summary').pathname&&[...u.searchParams.keys()].join()==='event'&&/^\d{6,12}$/.test(u.searchParams.get('event')))return;
+    // Published NFL headlines. Read-only, no account, bounded to a small page.
+    if(u.origin==='https://site.web.api.espn.com'&&u.pathname===new URL(ESPN+'news').pathname&&[...u.searchParams.keys()].join()==='limit'&&/^([1-9]|1\d|20)$/.test(u.searchParams.get('limit')))return;
     if(u.origin==='https://api.sleeper.app'&&!u.search){
       if(['/v1/state/nfl','/v1/players/nfl'].includes(u.pathname))return;
       const m=u.pathname.match(/^\/v1\/league\/(\d+)(?:\/(rosters|users|matchups\/[1-9]\d?))?$/);
@@ -111,5 +113,30 @@
     return {date,generatedAt:stamp(),week,gameWeek:b.week||null,season,league:fantasy.league,games,weekGames,matchup:fantasy.matchup,sources,notices};
   }
   async function getGame(id,refresh=false){id=String(id);if(!/^\d{6,12}$/.test(id))throw Error('Choose a valid NFL game.');const url=ESPN+'summary?event='+id,[d,s]=await cached('game:'+id,'ESPN NFL game details',url,async()=>detail(await fetchJSON(url),id),10000,refresh);if(!d.id)Object.assign(d,{id,game:null,leaders:[],players:[],plays:[],highlights:[],fieldPosition:null,lastPlay:null,notices:['Game details are unavailable. Try Refresh again.']});if(s.status==='stale')d.notices.push('Game details retain the last successful capture; the feed did not refresh.');return {...d,sources:[s],generatedAt:stamp()};}
-  window.NFLBrowserFeed={getDashboard,getGame};
+  const NEWS_LIMIT=12;
+  // ESPN's own published headlines. Nothing here is summarised, rewritten or inferred.
+  function articles(raw){
+    const rows=[];
+    for(const item of (raw.articles||[]).slice(0,NEWS_LIMIT)){
+      const link=safeURL(item.links?.web?.href),headline=String(item.headline||'').trim();
+      if(!link||!headline||item.premium)continue;
+      const athletes=[],teams=[];
+      for(const category of item.categories||[]){
+        if(category.type==='athlete'){const name=category.athlete?.description||category.description;if(name)athletes.push(String(name));}
+        else if(category.type==='team'){const name=category.team?.description||category.description;if(name)teams.push(String(name));}
+      }
+      const image=(item.images||[]).map(i=>safeURL(i.url,true)).find(Boolean)||null;
+      rows.push({id:String(item.id||link),headline,description:String(item.description||'').trim().slice(0,400)||null,
+        published:item.published||item.lastModified||null,type:item.type||'Story',url:link,imageUrl:image,
+        athletes:[...new Set(athletes)].sort().slice(0,8),teams:[...new Set(teams)].sort().slice(0,6)});
+    }
+    return {articles:rows};
+  }
+  async function getNews(refresh=false){
+    const url=ESPN+'news?limit='+NEWS_LIMIT;
+    const [payload,source]=await cached('news:nfl','ESPN NFL news',url,async()=>articles(await fetchJSON(url)),300000,refresh);
+    return {generatedAt:stamp(),articles:payload.articles||[],sources:[source],
+      notices:["Headlines and their times are the publisher's. A story naming your player is reporting, not an injury ruling or a lineup recommendation."]};
+  }
+  window.NFLBrowserFeed={getDashboard,getGame,getNews};
 })();
