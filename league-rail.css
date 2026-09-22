@@ -48,3 +48,43 @@ body.rail-closed .pane-reopen-left,body.has-game-rail.game-closed .pane-reopen-r
   body.rail-closed #league-rail,body.game-closed #game-rail{display:block}
   .game-rail{position:static;min-height:0;max-height:none;overflow:visible;border-left:0;border-top:1px solid var(--line);padding:16px}
 }
+
+/* ─ A calmer league row, and an icon strip when the panel is dragged narrow ───────────────────── */
+.league-open{align-items:center;gap:10px;padding:10px 6px 10px 9px;min-height:60px}
+.league-body{display:block;min-width:0;flex:1}
+.league-name{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-weight:650;line-height:1.25}
+.league-chance{display:block;margin-top:5px}
+.league-chance-label{font-size:1.05rem;line-height:1.1;font-variant-numeric:tabular-nums}
+.league-facts{display:block;margin-top:3px;font-size:.62rem;line-height:1.45;color:var(--muted)}
+.league-facts>span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* The capture note may carry an 'older' marker worth reading, so let it take a second line. */
+.league-facts>.league-chance-meta{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;white-space:normal;text-overflow:clip}
+.league-choice[data-chance-state=unavailable] .league-chance-label{font-size:1.05rem;font-weight:750;color:#93a3b6}
+.league-rail-heading p{margin-bottom:12px}
+.league-help{font-size:.7rem;padding:10px 10px 4px}
+#league-rail,#game-rail{transition:padding .12s ease}
+body:not(.pane-resizing) .app-frame{transition:grid-template-columns .16s ease}
+@media(prefers-reduced-motion:reduce){body .app-frame{transition:none}}
+
+/* Icon strip: the percentage is the one fact worth keeping at this width. */
+.league-rail[data-compact]{padding:16px 6px}
+.league-rail[data-compact] .league-rail-heading p,
+.league-rail[data-compact] .league-help,
+.league-rail[data-compact] .league-name,
+.league-rail[data-compact] .league-body>.sr-only,
+.league-rail[data-compact] .league-facts,
+.league-rail[data-compact] .league-include,
+.league-rail[data-compact] .all-leagues:not([aria-pressed]) span:not(.all-leagues-mark){display:none}
+.league-rail[data-compact] .league-rail-heading{display:flex;flex-direction:column;align-items:center;gap:6px;padding:0 0 10px}
+.league-rail[data-compact] .league-rail-heading h2{font-size:.62rem;text-align:center}
+.league-rail[data-compact] .all-leagues{justify-content:center;gap:0;font-size:0;min-height:44px;padding:6px}
+.league-rail[data-compact] .all-leagues-mark{font-size:1.5rem;width:auto}
+.league-rail[data-compact] .league-open{flex-direction:column;align-items:center;gap:4px;padding:8px 2px;min-height:64px;text-align:center}
+.league-rail[data-compact] .league-avatar{width:30px;height:30px}
+.league-rail[data-compact] .league-chance{margin-top:0}
+.league-rail[data-compact] .league-chance-label{font-size:.8rem}
+.league-rail[data-compact] .league-attention{padding:1px 3px;font-size:.5rem}
+.league-rail[data-compact] .focus-closest{font-size:0;min-height:40px;padding:6px 2px}
+.league-rail[data-compact] .focus-closest::before{content:"◎";font-size:1.1rem}
+.league-rail[data-compact] #league-import{font-size:0;min-height:40px;padding:6px 2px}
+.league-rail[data-compact] #league-import::before{content:"＋";font-size:1.05rem}

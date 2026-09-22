@@ -25,13 +25,22 @@
   // capture. Only a check that actually returned scores advances the first line, so a failed refresh,
   // a retained stale source or an NFL-only update leaves it where it was.
   const scoreChecks=new Map();
-  function scoreText(row){
-    if(!row)return 'Scores not checked yet';
-    if(!row.checkedAt)return row.status==='failed'?'Last score check failed':row.snapshot?'Saved score snapshot · not a live check':'Scores not checked yet';
+  function scoreAgo(row){
     const seconds=Math.max(0,Math.round((Date.now()-Date.parse(row.checkedAt))/1000)),minutes=Math.floor(seconds/60);
-    const ago=seconds<60?`${seconds} second${seconds===1?'':'s'} ago`:minutes<60?`${minutes} minute${minutes===1?'':'s'} ago`:new Date(row.checkedAt).toLocaleString(undefined,{weekday:'short',hour:'numeric',minute:'2-digit'});
-    const trailing=row.status==='failed'?' · last refresh failed':['stale','unavailable'].includes(row.status)?' · source not refreshing':'';
-    return `${row.snapshot?'Saved scores':'Scores checked'} ${ago}${trailing}`;
+    return seconds<60?`${seconds}s`:minutes<60?`${minutes}m`:new Date(row.checkedAt).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});
+  }
+  // The rail is narrow and can be dragged to a strip of icons, so the row carries the short form.
+  function scoreText(row){
+    if(!row||!row.checkedAt)return row&&row.status==='failed'?'Scores · failed':'Scores —';
+    const trailing=row.status==='failed'?' · failed':['stale','unavailable'].includes(row.status)?' · stale':'';
+    return `${row.snapshot?'Saved scores':'Scores'} ${scoreAgo(row)}${trailing}`;
+  }
+  // The unabbreviated version of the same fact, for the accessible description.
+  function scoreDetail(row){
+    if(!row)return 'Scores not checked yet';
+    if(!row.checkedAt)return row.status==='failed'?'The last score check failed; there has been no successful check.':row.snapshot?'Saved score snapshot, not a live check.':'Scores not checked yet';
+    const trailing=row.status==='failed'?', and the last refresh failed':['stale','unavailable'].includes(row.status)?', and the source is not refreshing':'';
+    return `${row.snapshot?'Saved scores from':'Scores last checked'} ${scoreAgo(row)} ago${trailing}`;
   }
   function renderScoreChecks(){
     for(const button of document.querySelectorAll('[data-league-open]')){
@@ -54,9 +63,11 @@
       const meta=typeof value?.meta==='string'&&value.kind!=='estimate'?value.meta:league.platform+' · No saved percentage';
       const detail=typeof value?.detail==='string'&&value.kind!=='estimate'?value.detail:'No platform win percentage has been saved for this league.';
       const stale=known&&value.stale===true,rank=known&&!stale&&value.percent>0&&value.percent<100&&[1,2].includes(value.attentionRank)?value.attentionRank:null;
-      button.querySelector('.league-chance-label').textContent=label;button.querySelector('.league-chance-meta').textContent=meta;
+      button.querySelector('.league-chance-label').textContent=known?(value.short||label):'—';
+      button.querySelector('.league-chance-meta').textContent=value?.brief||'No chance saved';
+      button.querySelector('.league-chance-meta').title=meta;
       const badge=button.querySelector('.league-attention');badge.hidden=!rank;badge.textContent=rank?'Closest '+rank:'';badge.title='Close at last check';
-      const description=button.querySelector('.league-chance-description');description.textContent=[scoreText(scoreChecks.get(league.id)),label,meta,rank?'Closest matchup '+rank+' at last check':'',detail].filter(Boolean).join('. ');
+      const description=button.querySelector('.league-chance-description');description.textContent=[scoreDetail(scoreChecks.get(league.id)),label,meta,rank?'Closest matchup '+rank+' at last check':'',detail].filter(Boolean).join('. ');
       button.closest('.league-choice').classList.toggle('has-close-matchup',Boolean(rank));button.closest('.league-choice').dataset.chanceState=known?(stale?'stale':'snapshot'):'unavailable';
       if(rank)ranked.push({id:league.id,rank,name:league.name,button});
     }
@@ -86,7 +97,7 @@
   }
   function setupContext(){
     const rail=$('league-rail');if(!rail)return;
-    $('league-options').innerHTML=contextLeagues.map((l,i)=>{const initials=l.name.split(/\s+/).filter(Boolean).map(w=>w[0]).join('').slice(0,2).toUpperCase();return `<div class="league-choice" style="--league-ink:${window.NFLGameInsights.color(l.id,contextLeagues).ink};--league-tint:${window.NFLGameInsights.color(l.id,contextLeagues).tint}"><button class="league-open" data-league-open="${esc(l.id)}" aria-label="Open ${esc(l.name)} only" aria-describedby="league-chance-${i}"><span class="league-avatar league-color-${i%5}" aria-hidden="true">${esc(initials)}</span><span class="league-name">${esc(l.name)}<span class="league-chance"><small class="league-scores">Scores not checked yet</small><strong class="league-chance-label">Chance unavailable</strong><span class="league-attention" hidden></span><small class="league-chance-meta">${esc(l.platform)} · No saved percentage</small></span><span id="league-chance-${i}" class="sr-only league-chance-description"></span></span></button><label class="league-include" title="Include ${esc(l.name)} in the combined view"><input type="checkbox" data-league-include="${esc(l.id)}" aria-label="Include ${esc(l.name)} in combined view" aria-describedby="league-chance-${i}"><span class="sr-only">Include ${esc(l.name)}</span></label></div>`;}).join('');
+    $('league-options').innerHTML=contextLeagues.map((l,i)=>{const initials=l.name.split(/\s+/).filter(Boolean).map(w=>w[0]).join('').slice(0,2).toUpperCase();return `<div class="league-choice" style="--league-ink:${window.NFLGameInsights.color(l.id,contextLeagues).ink};--league-tint:${window.NFLGameInsights.color(l.id,contextLeagues).tint}"><button class="league-open" data-league-open="${esc(l.id)}" title="${esc(l.name)}" aria-label="Open ${esc(l.name)} only" aria-describedby="league-chance-${i}"><span class="league-avatar league-color-${i%5}" aria-hidden="true">${esc(initials)}</span><span class="league-body"><span class="league-name">${esc(l.name)}</span><span class="league-chance"><strong class="league-chance-label">—</strong><span class="league-attention" hidden></span><small class="league-facts"><span class="league-scores">Scores —</span><span class="league-chance-meta">No chance saved</span></small></span><span id="league-chance-${i}" class="sr-only league-chance-description"></span></span></button><label class="league-include" title="Include ${esc(l.name)} in the combined view"><input type="checkbox" data-league-include="${esc(l.id)}" aria-label="Include ${esc(l.name)} in combined view" aria-describedby="league-chance-${i}"><span class="sr-only">Include ${esc(l.name)}</span></label></div>`;}).join('');
     if(!$('focus-closest')){const focus=document.createElement('button');focus.id='focus-closest';focus.className='focus-closest';focus.type='button';focus.textContent='Focus close matchups';focus.title='Close at last check';focus.hidden=true;$('all-leagues').after(focus);}
     renderScoreChecks();
     $('all-leagues').hidden=!contextLeagues.length;$('league-help').hidden=!contextLeagues.length;$('league-import').hidden=Boolean(contextLeagues.length);
@@ -167,7 +178,10 @@
   // choices stay on this device. Widths are clamped so the centre can never be squeezed away, and the
   // whole mechanism stands down on narrow windows where the panels stack instead.
   (function sidePanels(){
-    const KEY='nfl-fantasycast-panes-v1',LIMITS={rail:[180,420],game:[280,560]},VAR={rail:'--rail-w',game:'--game-w'},root=document.documentElement;
+    const KEY='nfl-fantasycast-panes-v1',LIMITS={rail:[58,420],game:[280,560]},VAR={rail:'--rail-w',game:'--game-w'},root=document.documentElement;
+    // Below this the rail is a strip of team icons: name, notes and the combine checkbox step aside and
+    // the percentage stays, so dragging it narrow reads like a switcher instead of six wrapped lines.
+    const MINI=168;
     const WIDE=()=>window.matchMedia('(min-width: 901px)').matches;
     let saved={};try{saved=JSON.parse(localStorage.getItem(KEY))||{};}catch{}
     const clamp=(pane,value)=>Math.max(LIMITS[pane][0],Math.min(LIMITS[pane][1],Math.round(value)));
@@ -180,6 +194,13 @@
         document.body.classList.toggle(pane+'-closed',closed);
         for(const button of document.querySelectorAll(`[data-pane-toggle="${pane}"]`))button.setAttribute('aria-expanded',String(!closed));
       }
+      measure();
+    }
+    function measure(){
+      const rail=document.getElementById('league-rail');if(!rail)return;
+      const wide=WIDE()&&rail.getBoundingClientRect().width>=MINI;
+      rail.toggleAttribute('data-compact',!wide&&WIDE());
+      rail.title=!wide&&WIDE()?'Drag the edge wider to name each league and combine several':'';
     }
     function toggle(pane){saved[pane+'Open']=saved[pane+'Open']===false;store();apply();
       const target=document.querySelector(saved[pane+'Open']===false?`.pane-reopen[data-pane-toggle="${pane}"]`:`#${pane==='rail'?'league-rail':'game-rail'} .pane-hide`);
@@ -206,6 +227,8 @@
     });
     document.addEventListener('dblclick',e=>{const grip=e.target.closest?.('.pane-grip');if(!grip)return;delete saved[grip.dataset.pane+'Width'];store();apply();});
     apply();document.addEventListener('nfl:render',apply);
+    if(typeof ResizeObserver==='function'){const rail=document.getElementById('league-rail');if(rail)new ResizeObserver(measure).observe(rail);}
+    window.addEventListener('resize',measure);
   })();
 
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)syncLeagueChances();});
