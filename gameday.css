@@ -196,3 +196,26 @@
 .gd-refresh-line{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 14px;margin:0 0 14px;padding:0;background:none;border:0;font-size:.76rem;color:var(--gd-muted)}
 .gd-refresh-line .gd-health{display:inline-flex;align-items:baseline;gap:7px;padding:0;background:none;border:0}
 .gd-refresh-line #gd-age{font-variant-numeric:tabular-nums}
+
+/* ─ One visual language ──────────────────────────────────────────────────────────────────────────
+   Four cards had four different coloured left borders, which read as four unrelated widgets. They are
+   now one surface with a quiet header rule; colour is reserved for league identity and live state. */
+.gd-rooting-card,.gd-news-card,.gd-improve-card{border:1px solid var(--gd-line);border-left:1px solid var(--gd-line);border-radius:7px;background:#fff;margin-bottom:10px}
+.gd-rooting-card>summary,.gd-news-card>summary,.gd-improve-card>summary{padding:11px 14px;border-radius:7px}
+.gd-rooting-card[open]>summary,.gd-news-card[open]>summary,.gd-improve-card[open]>summary{border-bottom:1px solid var(--gd-line);border-radius:7px 7px 0 0}
+.gd-rooting-card>summary small,.gd-news-card>summary small,.gd-improve-card>summary small{color:var(--gd-muted);font-weight:600}
+.gd-rooting-card>summary b,.gd-news-card>summary b,.gd-improve-card>summary b{font-size:.86rem;letter-spacing:.01em}
+.gd-rooting-body,.gd-news-body,.gd-improve-body{padding:12px 14px 14px}
+/* Nested boxes inside those bodies flatten into rows. */
+.gd-news-list li,.gd-improve-list li{border:0;border-top:1px solid #eef2f7;border-radius:0;background:none;padding:9px 0}
+.gd-news-list li:first-child,.gd-improve-list li:first-child{border-top:0;padding-top:0}
+.gd-news-list li.gd-news-mine{background:none}
+.gd-news-list li.gd-news-mine .gd-news-head::before{content:"◆ ";color:#1f7a63}
+.gd-search-list>li{border-radius:6px}
+.gd-search-who{background:none;border-bottom:1px solid #eef2f7}
+
+/* The count pills carry a glyph instead of a word. */
+.gd-remaining button i{font-style:normal;font-size:.82rem;line-height:1;opacity:.75}
+.gd-remaining button{gap:4px}
+.gd-remaining button[aria-pressed=true] i{opacity:1}
+.gameday h1.sr-only+*{margin-top:0}

@@ -126,3 +126,19 @@ body:not(.pane-resizing) .app-frame{transition:grid-template-columns .16s ease}
   .league-choice{border-left-width:4px;border-top:0}
   .league-choice+.league-choice{border-top:0}
 }
+
+
+/* ─ Hover to peek ────────────────────────────────────────────────────────────────────────────────
+   Hidden, the rail still slides out over the workspace when you reach for its edge tag, so a quick
+   look at the other leagues costs no click and shifts no layout. */
+body.rail-closed.rail-peek #league-rail{
+  display:block;position:fixed;left:0;top:0;bottom:0;width:var(--rail-w);z-index:70;
+  overflow-y:auto;background:#fff;border-right:1px solid var(--line);
+  box-shadow:0 10px 34px rgba(16,40,70,.22);animation:rail-peek .16s ease both;
+}
+@keyframes rail-peek{from{transform:translateX(-12px);opacity:.4}to{transform:none;opacity:1}}
+/* The peeking rail must not bury the tag that pins it open, or the only way to keep it is a drag. */
+body.rail-closed.rail-peek .pane-reopen-left{z-index:80;box-shadow:0 2px 10px rgba(16,40,70,.28)}
+body.rail-closed.rail-peek #league-rail .pane-grip{display:none}
+@media(prefers-reduced-motion:reduce){body.rail-closed.rail-peek #league-rail{animation:none}}
+@media(max-width:900px){body.rail-closed.rail-peek #league-rail{position:static;box-shadow:none;animation:none}}

@@ -43,8 +43,8 @@
     const head=[`NFL FantasyCast — improvement log`,
       `${build()} · ${items.length} open item${items.length===1?'':'s'} · copied ${new Date().toLocaleString()}`,
       ``,
-      `Canonical project: 71_Code Space/Football Learning /nfl-field-guide/`,
-      `Read docs/nfl-field-guide/ROADMAP.md first, then ARCHITECTURE.md. Release with ./ship.sh "message".`,
+      `Canonical project: 71_Code Space/Football/NFL FantasyCast/`,
+      `Read docs/ROADMAP.md first, then docs/ARCHITECTURE.md. Release with ./ship.sh "message".`,
       `Reply with "SHIPPED: 1,3" (ranges like 1-4 work) and I will close those items.`,
       ``];
     const body=items.length?items.map((r,i)=>`${i+1}. ${r.text.replace(/\s+/g,' ').trim()}${r.build?`  [noticed on ${r.build}]`:''}`)
@@ -78,7 +78,7 @@
 
   function render(){
     const items=open(),all=load(),shipped=all.length-items.length;
-    return `<details class="gd-improve-card" data-key="improve"><summary><span><b>Notes for Claude</b><span>${items.length?`${items.length} open item${items.length===1?'':'s'}`:'Nothing noted yet'}${shipped?` · ${shipped} closed`:''}</span></span><small>Open the log</small></summary><div class="gd-improve-body">
+    return `<details class="gd-improve-card" data-key="improve"><summary><span><b>Notes</b><span>${items.length?`${items.length} open item${items.length===1?'':'s'}`:'Nothing noted yet'}${shipped?` · ${shipped} closed`:''}</span></span><small>Open the log</small></summary><div class="gd-improve-body">
       <p class="gd-improve-intro">Jot what you notice while you use this — good or bad. It stays on this device until you copy it.</p>
       <div class="gd-improve-entry">
         <label class="sr-only" for="improve-text">A note about NFL FantasyCast</label>

@@ -207,10 +207,15 @@
     // the percentage stays, so dragging it narrow reads like a switcher instead of six wrapped lines.
     const MINI=168;
     const WIDE=()=>window.matchMedia('(min-width: 901px)').matches;
-    let saved={};try{saved=JSON.parse(localStorage.getItem(KEY))||{};}catch{}
+    let saved={};
+    // Re-read on every apply: another tab, a restored backup or a cleared store can change this
+    // underneath us, and a cached copy would keep showing panels that are no longer configured.
+    const read=()=>{try{saved=JSON.parse(localStorage.getItem(KEY))||{};}catch{saved={};}return saved;};
+    read();
     const clamp=(pane,value)=>Math.max(LIMITS[pane][0],Math.min(LIMITS[pane][1],Math.round(value)));
     function store(){try{localStorage.setItem(KEY,JSON.stringify(saved));}catch{}}
     function apply(){
+      read();
       for(const pane of ['rail','game']){
         const width=Number(saved[pane+'Width']);
         if(Number.isFinite(width))root.style.setProperty(VAR[pane],clamp(pane,width)+'px');else root.style.removeProperty(VAR[pane]);
@@ -226,7 +231,7 @@
       rail.toggleAttribute('data-compact',!wide&&WIDE());
       rail.title=!wide&&WIDE()?'Drag the edge wider to name each league and combine several':'';
     }
-    function toggle(pane){saved[pane+'Open']=saved[pane+'Open']===false;store();apply();
+    function toggle(pane){saved[pane+'Open']=saved[pane+'Open']===false;store();document.body.classList.remove('rail-peek');apply();
       const target=document.querySelector(saved[pane+'Open']===false?`.pane-reopen[data-pane-toggle="${pane}"]`:`#${pane==='rail'?'league-rail':'game-rail'} .pane-hide`);
       if(target&&target.offsetParent!==null)target.focus({preventScroll:true});}
     document.addEventListener('click',e=>{const button=e.target.closest('[data-pane-toggle]');if(button)toggle(button.dataset.paneToggle);});
@@ -258,6 +263,23 @@
       if(e.key==='[')      {e.preventDefault();toggle('rail');}
       else if(e.key===']') {e.preventDefault();toggle('game');}
     });
+    // Reach for the edge tag and the hidden rail slides out over the workspace; leaving either one
+    // puts it back. Keyboard focus does the same, so it is not a mouse-only affordance.
+    let peekTimer=0;
+    const peek=on=>{
+      clearTimeout(peekTimer);
+      if(on){document.body.classList.add('rail-peek');return;}
+      // A short grace period so travelling from the tag to the rail does not close it.
+      peekTimer=setTimeout(()=>document.body.classList.remove('rail-peek'),160);
+    };
+    const peekable=()=>WIDE()&&saved.railOpen===false;
+    for(const [selector,events] of [['.pane-reopen-left',['pointerenter','focus']],['#league-rail',['pointerenter','focusin']]])
+      for(const node of document.querySelectorAll(selector))for(const type of events)
+        node.addEventListener(type,()=>{if(peekable())peek(true);},true);
+    for(const [selector,events] of [['.pane-reopen-left',['pointerleave','blur']],['#league-rail',['pointerleave','focusout']]])
+      for(const node of document.querySelectorAll(selector))for(const type of events)
+        node.addEventListener(type,()=>peek(false),true);
+    document.addEventListener('keydown',e=>{if(e.key==='Escape')peek(false);});
     apply();document.addEventListener('nfl:render',apply);
     if(typeof ResizeObserver==='function'){const rail=document.getElementById('league-rail');if(rail)new ResizeObserver(measure).observe(rail);}
     window.addEventListener('resize',measure);
